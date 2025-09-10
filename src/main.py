@@ -1,4 +1,4 @@
-from vedo import Volume, show, colors
+from vedo import Volume, show, colors, Mesh
 from pathlib import Path
 from vedo import Plotter
 
@@ -50,6 +50,56 @@ def create_camera_params(vol_center, vol_bounds):
     return camera_params
 
 
+def parse_mtl(mtl_file: Path):
+    """Parse .mtl file and return a dict of {material_name: (r,g,b)} diffuse colors."""
+    materials = {}
+    current = None
+    with open(mtl_file, "r") as f:
+        for line in f:
+            if line.startswith("newmtl"):
+                current = line.split()[1]
+            elif line.startswith("Kd") and current:
+                r, g, b = map(float, line.split()[1:4])
+                materials[current] = (r, g, b)
+    return materials
+
+
+def load_mesh(obj_path: Path, load_mtl: bool) -> Mesh:
+    # path = Path("/home/juan95/research/3dreconstruction/slicer_scripts/output")
+    # mesh_path = path / "liver.obj"
+
+    mesh = Mesh(obj_path)
+
+    # Load material
+    mtl_path = obj_path.with_suffix(".mtl")
+    if mtl_path.exists() and load_mtl:
+        mats = parse_mtl(mtl_path)
+
+        if mats:
+            color = next(iter(mats.values()))
+            mesh.c(color)
+    else:
+        # mesh.c("random").alpha(1.0)
+        pass
+
+    # mesh.lighting("plastic").ambient(0.4).specular(0.9).specularPower(30)
+    mesh.lighting("plastic")
+
+    return mesh
+
+
+def load_meshes(folder: str, pattern: str = "*.obj"):
+    folder_path = Path(folder)
+    meshes = []
+    for mesh_path in folder_path.glob(pattern):
+        m = load_mesh(mesh_path, load_mtl=True)
+
+        # m = Mesh(str(mesh_path))
+        # m.c("random").alpha(0.6)  # random color, semi-transparent
+        meshes.append(m)
+    return meshes
+
+
 def main():
     data_path = Path("/home/juan95/JuanData/OvarianCancerDataset/CT_scans")
     index = 270
@@ -60,14 +110,18 @@ def main():
 
     plt = Plotter(N=2, bg="black", bg2="black", sharecam=False)
 
-    print(ct_volume.center())
     bounds = ct_volume.bounds()
     vol_center = ct_volume.center()
     camera_params = create_camera_params(vol_center, bounds)
+
+    meshes = load_meshes("/home/juan95/research/3dreconstruction/slicer_scripts/output")
+    # meshes.append(ct_vis)
+
     plt.at(0).show(
         ct_slice, seg_slice, title=f"2D Slice (index {index})", camera=camera_params
     )
-    plt.at(1).show(ct_vis, title="3D Volume Rendering")
+    # plt.at(1).show(ct_vis, title="3D Volume Rendering")
+    plt.at(1).show(meshes, title="3D Mesh", camera=camera_params)
 
     # Show the Plotter window with both renderers
     plt.interactive().close()
