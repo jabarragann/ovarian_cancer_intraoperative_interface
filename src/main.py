@@ -17,6 +17,12 @@ def time_init(func):
 
     return wrapper
 
+def is_int(s):
+    try:
+        int(s)
+        return True
+    except ValueError:
+        return False
 
 def load_ct_scans_regions(
     data_path: Path,
@@ -35,6 +41,11 @@ class CT_Viewer(Plotter):
     def __init__(self):
         super().__init__(N=2, bg="black", bg2="black", sharecam=False)
         self.interactor.RemoveObservers("KeyPressEvent")  # type: ignore
+
+        ## State variables
+        self.active_quadrant = 0
+        self.quadrant_volumes_dict : dict[QuadrantsInformation, Volume] = {}
+        self.quadrant_slices_dict : dict[QuadrantsInformation, Mesh] = {}
 
         self.all_slices, self.all_objects, camera_params = self.setup_viewer()
 
@@ -64,12 +75,17 @@ class CT_Viewer(Plotter):
 
         ## Panel 1 assets - Load slices
         index = 270
-        self.ct_volume, self.seg_volume, self.region_seg_dict = self.load_volumes(
+        self.ct_volume, self.seg_volume, self.quadrant_volumes_dict = self.load_volumes(
             data_path
         )
 
         ct_slice = self.slice_intensity_volume(self.ct_volume, index=index)
-        seg_slice = self.slice_segmentation_volume(self.seg_volume, index=index)
+        self.quadrant_slices_dict = self.create_quadrant_slices(index=index)
+        seg_slices_list = [s for s in self.quadrant_slices_dict.values()]
+
+        # Set active quadrant
+        quadrant = QuadrantsInformation.from_id(self.active_quadrant)
+        self.quadrant_slices_dict[quadrant].alpha(0.4)
 
         # ct_vis = (
         #     ct_volume.clone().cmap("gray").alpha([[-1000, 0], [200, 0.2], [1000, 0.7]])
@@ -99,7 +115,7 @@ class CT_Viewer(Plotter):
         all_objects.append(meshes_disease_dict["lymph node"])
         all_objects.append(meshes_disease_dict["carcinosis"])
 
-        all_slices = [ct_slice, seg_slice]
+        all_slices = [ct_slice, seg_slices_list]
 
         return all_slices, all_objects, camera_params
 
@@ -118,9 +134,9 @@ class CT_Viewer(Plotter):
 
         return ct_slice
 
-    def slice_segmentation_volume(self, seg_volume, index) -> list[Mesh]:
-        all_slices = []
-        for region, volume in self.region_seg_dict.items():
+    def create_quadrant_slices(self, index) -> dict[QuadrantsInformation, Mesh]:
+        slices_dict = {} 
+        for region, volume in self.quadrant_volumes_dict.items():
             seg_slice = volume.yslice(index)
             lut = colors.build_lut(
                 [
@@ -133,11 +149,11 @@ class CT_Viewer(Plotter):
                 above_alpha=1.0,  # type: ignore
             )
             seg_slice.cmap(lut)
-            seg_slice.alpha(0.4)
+            seg_slice.alpha(0.0)
 
-            all_slices.append(seg_slice)
+            slices_dict[region] = seg_slice
 
-        return all_slices
+        return slices_dict
 
         # ## METHOD 1
         # seg_slice = seg_volume.yslice(index)
@@ -156,19 +172,32 @@ class CT_Viewer(Plotter):
 
     def on_key_press(self, evt):
         """Handle keyboard events"""
-        if evt.keypress == "q":
+        key = evt.keypress
+        if key == "q":
             self.break_interaction()
-        elif evt.keypress.lower() == "t":
+        elif key.lower() == "t":
             print("Help key pressed")
-        elif evt.keypress.lower() == "1":
-            print("region 1 selected")
-            for slice in self.all_slices:
-                slice.alpha(0.0)
-            self.render()
-        elif evt.keypress.lower() == "2":
-            print("region 2 selected")
-            for slice in self.all_slices:
-                slice.alpha(0.8)
+
+        elif is_int(key):
+            idx = int(key)
+            if idx < 7 and idx >=0:
+                print(f"activating {QuadrantsInformation.from_id(idx).name}")
+                current_quadrant = QuadrantsInformation.from_id(self.active_quadrant)
+                self.quadrant_slices_dict[current_quadrant].alpha(0.0)
+
+                new_quadrant = QuadrantsInformation.from_id(idx)
+                self.quadrant_slices_dict[new_quadrant].alpha(0.4)
+                self.active_quadrant = idx
+
+        # elif key.lower() == "1":
+        #     print("region 1 selected")
+        #     for slice in self.all_slices:
+        #         slice.alpha(0.0)
+        #     self.render()
+        # elif key.lower() == "2":
+        #     print("region 2 selected")
+        #     for slice in self.all_slices:
+        #         slice.alpha(0.8)
 
             self.render()
 

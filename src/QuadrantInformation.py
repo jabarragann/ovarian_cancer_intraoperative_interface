@@ -44,11 +44,18 @@ class QuadrantsInformation(Enum):
         regions_color_palette[6],
     )
 
-    def __init__(self, id: int, mosaic_label: str, short_name: str, color: str):
-        self._value = id
-        self._name = mosaic_label
+    def __init__(self, id: int, long_name: str, short_name: str, color: str):
+        self._id = id
+        self._name = long_name
         self._short_name = short_name
         self._color = color
+
+    @classmethod
+    def from_id(cls, id: int):
+        for member in cls:
+            if member.id == id:
+                return member
+        raise ValueError(f"Unknown quadrant ID: {id}")
 
     @classmethod
     def from_file_name(cls, filename: Path):
@@ -63,7 +70,7 @@ class QuadrantsInformation(Enum):
 
     @property
     def id(self) -> int:
-        return self._value
+        return self._id
 
     @property
     def name(self) -> str:
