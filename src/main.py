@@ -4,6 +4,56 @@ from vedo import Plotter
 from vedo.applications import Slicer2DPlotter
 
 
+class CT_Viewer(Plotter):
+    def __init__(self):
+        super().__init__(N=2, bg="black", bg2="black", sharecam=False)
+
+        all_slices, all_objects, camera_params = self.setup_viewer()
+
+        self.at(0).show(all_slices, title="2D Slice", camera=camera_params)
+        self.at(1).show(all_objects, title="3D Mesh", camera=camera_params)
+
+    def setup_viewer(self):
+        data_path = Path("/home/juan95/JuanData/OvarianCancerDataset/CT_scans")
+
+        ## Panel 1 assets - Load slices
+        index = 270
+        ct_volume, seg_volume = load_data(data_path)
+        ct_slice, seg_slice = create_slice(ct_volume, seg_volume, index=index)
+
+        # ct_vis = (
+        #     ct_volume.clone().cmap("gray").alpha([[-1000, 0], [200, 0.2], [1000, 0.7]])
+        # )
+
+        ## Panel 2 assets
+        vol_bounds = ct_volume.bounds()  # xmin,xmax, ymin,ymax, zmin,zmax
+        vol_center = ct_volume.center()
+        camera_params = create_camera_params(vol_center, vol_bounds)
+        print(f"vol_bounds: {vol_bounds}")
+        print(f"vol_center: {vol_center}")
+        print(f"vol origin {ct_volume.origin()}")
+
+        lights_list = create_lights(vol_center, vol_bounds)
+        meshes_list, meshes_dict = load_meshes(
+            "/home/juan95/research/3dreconstruction/slicer_scripts/output"
+        )
+
+        meshes_disease_list, meshes_disease_dict = load_meshes(
+            "/home/juan95/research/3dreconstruction/slicer_scripts/output_disease"
+        )
+
+        set_mesh_visual_properties(meshes_dict)
+        set_disease_visual_properties(meshes_disease_dict)
+
+        all_objects = meshes_list + lights_list
+        all_objects.append(meshes_disease_dict["lymph node"])
+        all_objects.append(meshes_disease_dict["carcinosis"])
+
+        all_slices = [ct_slice, seg_slice]
+
+        return all_slices, all_objects, camera_params
+
+
 def load_data(data_path):
     patient_id = 6
     complete_path = data_path / f"Patient{patient_id:02d}/3d_slicer/"
@@ -41,9 +91,6 @@ def create_slice(ct_volume, seg_volume, index):
     # Apply LUT to your slice
     seg_slice.cmap(lut)
     seg_slice.alpha(0.4)
-
-    print(type(seg_slice))
-    print(type(ct_slice))
 
     return ct_slice, seg_slice
 
@@ -121,11 +168,12 @@ def create_lights(vol_center, vol_bounds):
     light2_pos = [vol_bounds[0] - 50, vol_center[1], vol_center[2]]
     light3_pos = [vol_bounds[1] + 50, vol_center[1], vol_center[2]]
 
-    light1 = Light(pos=light1_pos, focal_point=vol_center, c="white", intensity=1.0)
-    light2 = Light(pos=light2_pos, focal_point=vol_center, c="white", intensity=1.0)
-    light3 = Light(pos=light3_pos, focal_point=vol_center, c="white", intensity=1.0)
+    light1 = Light(pos=light1_pos, focal_point=vol_center, c="white", intensity=1.0)  # type: ignore
+    light2 = Light(pos=light2_pos, focal_point=vol_center, c="white", intensity=1.0)  # type: ignore
+    light3 = Light(pos=light3_pos, focal_point=vol_center, c="white", intensity=1.0)  # type: ignore
 
     return [light1, light2, light3]
+
 
 def set_mesh_visual_properties(meshes_dict):
     for key, mesh in meshes_dict.items():
@@ -136,6 +184,7 @@ def set_mesh_visual_properties(meshes_dict):
 
     meshes_dict["liver"].alpha(0.4)
 
+
 def set_disease_visual_properties(mesh_dict):
     for key, mesh in mesh_dict.items():
         mesh.lighting("glossy")
@@ -143,49 +192,10 @@ def set_disease_visual_properties(mesh_dict):
         mesh.properties.SetSpecular(0.9)
         mesh.properties.SetSpecularPower(14)
 
+
 def main():
-    data_path = Path("/home/juan95/JuanData/OvarianCancerDataset/CT_scans")
-    index = 270
-    ct_volume, seg_volume = load_data(data_path)
-    ct_slice, seg_slice = create_slice(ct_volume, seg_volume, index=index)
-
-    ct_vis = ct_volume.clone().cmap("gray").alpha([[-1000, 0], [200, 0.2], [1000, 0.7]])
-
-    plt = Plotter(N=2, bg="black", bg2="black", sharecam=False)
-
-    vol_bounds = ct_volume.bounds()  # xmin,xmax, ymin,ymax, zmin,zmax
-    vol_center = ct_volume.center()
-    camera_params = create_camera_params(vol_center, vol_bounds)
-    print(f"vol_bounds: {vol_bounds}")
-    print(f"vol_center: {vol_center}")
-    print(f"vol origin {ct_volume.origin()}")
-
-    lights_list = create_lights(vol_center, vol_bounds)
-    meshes_list, meshes_dict = load_meshes(
-        "/home/juan95/research/3dreconstruction/slicer_scripts/output"
-    )
-
-    meshes_disease_list, meshes_disease_dict = load_meshes(
-        "/home/juan95/research/3dreconstruction/slicer_scripts/output_disease"
-    )
-
-    set_mesh_visual_properties(meshes_dict)
-    set_disease_visual_properties(meshes_disease_dict)
-
-    all_objects = meshes_list + lights_list
-    all_objects.append(meshes_disease_dict["lymph node"])
-    all_objects.append(meshes_disease_dict["carcinosis"])
-
-    plt.at(0).show(
-        ct_slice, seg_slice, title=f"2D Slice (index {index})", camera=camera_params
-    )
-    # plt.at(1).show(ct_vis, title="3D Volume Rendering")
-    plt.at(1).show(all_objects, title="3D Mesh", camera=camera_params)
-
-    # Show the Plotter window with both renderers
-    plt.interactive().close()
-
-    print("Viewer closed.")
+    viewer = CT_Viewer()
+    viewer.interactive().close()
 
 
 if __name__ == "__main__":
