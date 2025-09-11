@@ -32,16 +32,17 @@ def display_visible_segments():
         print(f" - {segment}")
 
 def export_to_mesh():
-    nodes_of_interest = ["total_segmentation"]
+    node_name = "radiologist_annotations"
+    nodes_of_interest = [node_name]
 
     ## Hardcoded names
     # # segmentNamesToExport = ["liver", "gallbladder", "inferior vena cava", "portal vein and splenic vein"]
     # segmentNamesToExport = [ "spleen", "gallbladder", "liver", "stomach", "inferior lobe of left lung", "inferior lobe of right lung",
     #     "heart", "aorta", "inferior vena cava", "portal vein and splenic vein" ]
     ## Visible names
-    segmentNamesToExport = get_visible_segments("total_segmentation")
+    segmentNamesToExport = get_visible_segments(node_name)
 
-    outputGlbPath = "/home/juan95/research/3dreconstruction/slicer_scripts/output/"
+    output_path = "/home/juan95/research/3dreconstruction/slicer_scripts/output/"
 
     # Create a parent model folder
     modelFolder = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLModelHierarchyNode", "ExportedSegmentsFolder")
@@ -73,7 +74,7 @@ def export_to_mesh():
                 # Find the newly created model node (by name)
                 modelNode = slicer.util.getNode(f"{segmentName}")
                 # Save model as OBJ
-                slicer.util.saveNode(modelNode, outputGlbPath+f"{segmentName}.obj")
+                slicer.util.saveNode(modelNode, output_path+f"{segmentName}.obj")
                 # Erase model
                 slicer.mrmlScene.RemoveNode(modelNode)
 

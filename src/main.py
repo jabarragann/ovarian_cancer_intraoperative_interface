@@ -1,6 +1,7 @@
 from vedo import Volume, show, colors, Mesh, Light
 from pathlib import Path
 from vedo import Plotter
+from vedo.applications import Slicer2DPlotter
 
 
 def load_data(data_path):
@@ -20,7 +21,14 @@ def load_data(data_path):
 
 def create_slice(ct_volume, seg_volume, index):
     ct_slice = ct_volume.yslice(index)
-    ct_slice.cmap("gray", vmin=-500, vmax=1000)
+
+    # window/level
+    W = 400
+    L = 50
+    vmin = L - W / 2
+    vmax = L + W / 2
+
+    ct_slice.cmap("gray", vmin=vmin, vmax=vmax)
 
     seg_slice = seg_volume.yslice(index)
     lut = colors.build_lut(
@@ -82,25 +90,30 @@ def load_mesh(obj_path: Path, load_mtl: bool) -> Mesh:
         # mesh.c("random").alpha(1.0)
         pass
 
-    # mesh.lighting("plastic").ambient(0.4).specular(0.9).specularPower(30)
     mesh.lighting("plastic")
-    mesh.properties.SetAmbient(0.6)
+    mesh.properties.SetAmbient(0.4)
     mesh.properties.SetSpecular(0.8)
     mesh.properties.SetSpecularPower(10)
 
     return mesh
 
 
-def load_meshes(folder: str, pattern: str = "*.obj"):
+def load_meshes(
+    folder: str, pattern: str = "*.obj"
+) -> tuple[list[Mesh], dict[str, Mesh]]:
     folder_path = Path(folder)
-    meshes = []
+    meshes_list = []
+    meshes_dict = {}
     for mesh_path in folder_path.glob(pattern):
         m = load_mesh(mesh_path, load_mtl=True)
 
         # m = Mesh(str(mesh_path))
         # m.c("random").alpha(0.6)  # random color, semi-transparent
-        meshes.append(m)
-    return meshes
+        meshes_list.append(m)
+        mesh_name = mesh_path.with_suffix("").name
+        meshes_dict[mesh_name] = m
+
+    return meshes_list, meshes_dict
 
 
 def create_lights(vol_center, vol_bounds):
@@ -114,6 +127,21 @@ def create_lights(vol_center, vol_bounds):
 
     return [light1, light2, light3]
 
+def set_mesh_visual_properties(meshes_dict):
+    for key, mesh in meshes_dict.items():
+        mesh.lighting("plastic")
+        mesh.properties.SetAmbient(0.3)
+        mesh.properties.SetSpecular(0.6)
+        mesh.properties.SetSpecularPower(5)
+
+    meshes_dict["liver"].alpha(0.4)
+
+def set_disease_visual_properties(mesh_dict):
+    for key, mesh in mesh_dict.items():
+        mesh.lighting("glossy")
+        mesh.properties.SetAmbient(0.6)
+        mesh.properties.SetSpecular(0.9)
+        mesh.properties.SetSpecularPower(14)
 
 def main():
     data_path = Path("/home/juan95/JuanData/OvarianCancerDataset/CT_scans")
@@ -133,10 +161,20 @@ def main():
     print(f"vol origin {ct_volume.origin()}")
 
     lights_list = create_lights(vol_center, vol_bounds)
-    meshes_list = load_meshes(
+    meshes_list, meshes_dict = load_meshes(
         "/home/juan95/research/3dreconstruction/slicer_scripts/output"
     )
+
+    meshes_disease_list, meshes_disease_dict = load_meshes(
+        "/home/juan95/research/3dreconstruction/slicer_scripts/output_disease"
+    )
+
+    set_mesh_visual_properties(meshes_dict)
+    set_disease_visual_properties(meshes_disease_dict)
+
     all_objects = meshes_list + lights_list
+    all_objects.append(meshes_disease_dict["lymph node"])
+    all_objects.append(meshes_disease_dict["carcinosis"])
 
     plt.at(0).show(
         ct_slice, seg_slice, title=f"2D Slice (index {index})", camera=camera_params
