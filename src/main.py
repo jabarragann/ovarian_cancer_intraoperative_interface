@@ -103,6 +103,18 @@ def load_meshes(folder: str, pattern: str = "*.obj"):
     return meshes
 
 
+def create_lights(vol_center, vol_bounds):
+    light1_pos = [vol_center[0], vol_bounds[2] - 100, vol_center[2]]
+    light2_pos = [vol_bounds[0] - 50, vol_center[1], vol_center[2]]
+    light3_pos = [vol_bounds[1] + 50, vol_center[1], vol_center[2]]
+
+    light1 = Light(pos=light1_pos, focal_point=vol_center, c="white", intensity=1.0)
+    light2 = Light(pos=light2_pos, focal_point=vol_center, c="white", intensity=1.0)
+    light3 = Light(pos=light3_pos, focal_point=vol_center, c="white", intensity=1.0)
+
+    return [light1, light2, light3]
+
+
 def main():
     data_path = Path("/home/juan95/JuanData/OvarianCancerDataset/CT_scans")
     index = 270
@@ -120,31 +132,17 @@ def main():
     print(f"vol_center: {vol_center}")
     print(f"vol origin {ct_volume.origin()}")
 
-    light1_pos1 = camera_params["pos"]
-    light1_pos2 = [vol_center[0], vol_bounds[3] + 50, vol_center[2]]
-    light1_pos3 = [vol_center[0], vol_bounds[2] - 100, vol_center[2]]
-    light2_pos1 = [vol_bounds[0] - 50, vol_center[1], vol_center[2]]
-    light3_pos1 = [vol_bounds[1] + 50, vol_center[1], vol_center[2]]
-    print(light1_pos1)
-    print(light1_pos2)
-    print(light1_pos3)
-
-    light1 = Light(pos=light1_pos3, focal_point=vol_center, c="white", intensity=1.0)
-    # light1 = Light(pos=[vol_center[0], vol_bounds[3] + 50, vol_center[2]], focal_point=vol_center, c="white", intensity=1.0)
-    light2 = Light(pos=light2_pos1, focal_point=vol_center, c="white", intensity=1.0)
-    light3 = Light(pos=light3_pos1, focal_point=vol_center, c="white", intensity=1.0)
-
-    meshes = load_meshes("/home/juan95/research/3dreconstruction/slicer_scripts/output")
-    # meshes.append(ct_vis)
-    meshes.append(light1)
-    meshes.append(light2)
-    meshes.append(light3)
+    lights_list = create_lights(vol_center, vol_bounds)
+    meshes_list = load_meshes(
+        "/home/juan95/research/3dreconstruction/slicer_scripts/output"
+    )
+    all_objects = meshes_list + lights_list
 
     plt.at(0).show(
         ct_slice, seg_slice, title=f"2D Slice (index {index})", camera=camera_params
     )
     # plt.at(1).show(ct_vis, title="3D Volume Rendering")
-    plt.at(1).show(meshes, title="3D Mesh", camera=camera_params)
+    plt.at(1).show(all_objects, title="3D Mesh", camera=camera_params)
 
     # Show the Plotter window with both renderers
     plt.interactive().close()
