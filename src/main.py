@@ -1,4 +1,4 @@
-from vedo import Volume, show, colors, Mesh
+from vedo import Volume, show, colors, Mesh, Light
 from pathlib import Path
 from vedo import Plotter
 
@@ -84,6 +84,9 @@ def load_mesh(obj_path: Path, load_mtl: bool) -> Mesh:
 
     # mesh.lighting("plastic").ambient(0.4).specular(0.9).specularPower(30)
     mesh.lighting("plastic")
+    mesh.properties.SetAmbient(0.6)
+    mesh.properties.SetSpecular(0.8)
+    mesh.properties.SetSpecularPower(10)
 
     return mesh
 
@@ -110,12 +113,32 @@ def main():
 
     plt = Plotter(N=2, bg="black", bg2="black", sharecam=False)
 
-    bounds = ct_volume.bounds()
+    vol_bounds = ct_volume.bounds()  # xmin,xmax, ymin,ymax, zmin,zmax
     vol_center = ct_volume.center()
-    camera_params = create_camera_params(vol_center, bounds)
+    camera_params = create_camera_params(vol_center, vol_bounds)
+    print(f"vol_bounds: {vol_bounds}")
+    print(f"vol_center: {vol_center}")
+    print(f"vol origin {ct_volume.origin()}")
+
+    light1_pos1 = camera_params["pos"]
+    light1_pos2 = [vol_center[0], vol_bounds[3] + 50, vol_center[2]]
+    light1_pos3 = [vol_center[0], vol_bounds[2] - 100, vol_center[2]]
+    light2_pos1 = [vol_bounds[0] - 50, vol_center[1], vol_center[2]]
+    light3_pos1 = [vol_bounds[1] + 50, vol_center[1], vol_center[2]]
+    print(light1_pos1)
+    print(light1_pos2)
+    print(light1_pos3)
+
+    light1 = Light(pos=light1_pos3, focal_point=vol_center, c="white", intensity=1.0)
+    # light1 = Light(pos=[vol_center[0], vol_bounds[3] + 50, vol_center[2]], focal_point=vol_center, c="white", intensity=1.0)
+    light2 = Light(pos=light2_pos1, focal_point=vol_center, c="white", intensity=1.0)
+    light3 = Light(pos=light3_pos1, focal_point=vol_center, c="white", intensity=1.0)
 
     meshes = load_meshes("/home/juan95/research/3dreconstruction/slicer_scripts/output")
     # meshes.append(ct_vis)
+    meshes.append(light1)
+    meshes.append(light2)
+    meshes.append(light3)
 
     plt.at(0).show(
         ct_slice, seg_slice, title=f"2D Slice (index {index})", camera=camera_params
