@@ -5,7 +5,12 @@ import numpy as np
 from vedo import Volume, colors, Mesh, Light
 from pathlib import Path
 from vedo import Plotter
-from QuadrantInformation import QuadrantsInformation, compute_center, load_centers, save_centers
+from QuadrantInformation import (
+    QuadrantsInformation,
+    compute_center,
+    load_centers,
+    save_centers,
+)
 
 
 def time_init(func):
@@ -37,7 +42,7 @@ def load_ct_scans_regions(
         quadrant_info = QuadrantsInformation.from_file_name(region_file)
         regions_dict[quadrant_info] = Volume(region_file)
 
-        print(f"Loaded {quadrant_info.name}")
+        # print(f"Loaded {quadrant_info.name}")
         # if quadrant_info == QuadrantsInformation.PELVIC_REGION:
         #     break
 
@@ -211,53 +216,41 @@ class CT_Viewer(Plotter):
                 self.quadrant_slices_dict[new_quadrant].alpha(0.4)
                 self.active_quadrant = idx
 
-                # Change 3D camera position
-                # index 0 --> Left-right
-                # index 1 --> Anterior-posterior
-                # index 2 --> inferior-superior
-
-                volume = self.quadrant_volumes_dict[new_quadrant]
-                shape = volume.shape
-
-                vol_center = self.quadrant_center_dict[new_quadrant]
-                print(f"center {vol_center}")
-                print(f"shape {shape}")
-
-                anterior_plane_center = vol_center
-                anterior_plane_center[1] = int(shape[1])
-                print(f"ijk {anterior_plane_center}")
-
-                world_coords: MutableSequence[float]
-                world_coords = [0, 0, 0]
-                volume.dataset.TransformContinuousIndexToPhysicalPoint(
-                    anterior_plane_center, world_coords
-                )
-                print(f"world_coords {world_coords}")
-                world_coords = np.array(world_coords)
-
-                pos1 = np.array(self.at(1).camera.GetPosition())
-                fp1 = np.array(self.at(1).camera.GetFocalPoint())
-                print(f"camera pos {pos1}")
-
-                new_cam_pos1 = world_coords.copy()
-                vol_bounds = volume.bounds()
-                
-                new_cam_pos1[1] = vol_bounds[2] - 200
-
-                new_fp1 = world_coords.copy()
-
-                print(f"new fp1 {new_fp1}")
-                print(f"new pos1 {new_cam_pos1}")
-
-                self.at(1).camera.SetPosition(new_cam_pos1)
-                self.at(1).camera.SetFocalPoint(new_fp1)
-                self.at(1).camera.SetViewUp([0, 0, 1])
-                # self.at(1).render()
-                # self.interactor.render() 
-                self.at(1).renderer.ResetCameraClippingRange()
-
+                self.position_camera_in_region(new_quadrant)
 
             self.render()
+
+    def position_camera_in_region(self, new_quadrant: QuadrantsInformation):
+        """
+        Change 3D camera position
+        index 0 --> Left-right
+        index 1 --> Anterior-posterior
+        index 2 --> inferior-superior
+        """
+
+        volume = self.quadrant_volumes_dict[new_quadrant]
+        vol_center = self.quadrant_center_dict[new_quadrant]
+
+        anterior_plane_center = vol_center
+        anterior_plane_center[1] = int(volume.shape[1])
+
+        center_in_world: MutableSequence[float]
+        center_in_world = [0, 0, 0]
+        volume.dataset.TransformContinuousIndexToPhysicalPoint(
+            anterior_plane_center,   # type: ignore
+            center_in_world,
+        )
+        center_in_world_np = np.array(center_in_world)
+
+        # New camera position
+        new_cam_pos1 = center_in_world_np.copy()
+        vol_bounds = volume.bounds()
+        new_cam_pos1[1] = vol_bounds[2] - 200
+
+        self.at(1).camera.SetPosition(new_cam_pos1) #type: ignore
+        self.at(1).camera.SetFocalPoint(center_in_world) #type: ignore
+        self.at(1).camera.SetViewUp([0, 0, 1]) #type: ignore
+        self.at(1).renderer.ResetCameraClippingRange() #type: ignore
 
 
 def create_camera_params(vol_center, vol_bounds):
