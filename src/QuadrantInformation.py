@@ -1,6 +1,13 @@
+from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
+
+from collections.abc import MutableSequence
+import pickle
+from typing import Union
+import numpy as np
 import seaborn as sns
+from vedo import Mesh, Volume
 
 regions_color_palette = sns.color_palette("Set2", 7).as_hex()
 
@@ -83,3 +90,89 @@ class QuadrantsInformation(Enum):
     @property
     def color(self) -> str:
         return self._color
+
+
+def load_centers():
+    path = Path("run_time/regions_center.pkl")
+    if not Path(path).exists():
+        raise FileNotFoundError(f"Center file not found: {path}")
+
+    return pickle.load(open(path, "rb"))
+
+def save_centers(centers: dict[QuadrantsInformation, np.ndarray]):
+    path = Path("run_time/regions_center.pkl")
+    path.parent.mkdir(parents=True, exist_ok=True)
+
+    with open(path, "wb") as f:
+        pickle.dump(centers, f)
+
+def compute_center(volume):
+    seg_np = volume.tonumpy()
+
+    indices = np.argwhere(seg_np == 1)
+    min_idx = indices.min(axis=0)
+    max_idx = indices.max(axis=0)
+    center_idx = ((min_idx + max_idx) // 2).astype(int)
+    print(f"Center idx {center_idx}")
+
+    return center_idx
+
+    # # seg is a vedo.Volume
+    # ijk = center_idx
+
+    # # VTK has a method for this:
+    # world_coords: MutableSequence[float]
+    # world_coords = [0, 0, 0]
+    # volume.dataset.TransformContinuousIndexToPhysicalPoint(ijk, world_coords)
+
+    # return np.array(world_coords)
+
+## Unused
+
+# @dataclass
+# class QuadrantInstance:
+#     quadrant_info: QuadrantsInformation
+#     volume: Volume
+#     center: Union[np.ndarray, None] = None
+#     slice: Union[Mesh, None] = None
+
+#     def __post_init__(self):
+#         self.compute_center()
+
+#     def compute_center(self):
+#         seg_np = self.volume.tonumpy()
+
+#         indices = np.argwhere(seg_np == 1)
+#         min_idx = indices.min(axis=0)
+#         max_idx = indices.max(axis=0)
+#         center_idx = ((min_idx + max_idx) // 2).astype(int)
+#         print(f"Center idx {center_idx}")
+
+#         # seg is a vedo.Volume
+#         ijk = center_idx
+
+#         # VTK has a method for this:
+#         world_coords: MutableSequence[float]
+#         world_coords = [0, 0, 0]
+#         self.volume.dataset.TransformContinuousIndexToPhysicalPoint(ijk, world_coords)
+
+#         self.center = np.array(world_coords)
+
+
+# @dataclass
+# class QuadrantManager:
+#     instances: list[QuadrantInstance] = field(default_factory=list)
+
+#     def add_instance(self, instance: QuadrantInstance):
+#         self.instances.append(instance)
+
+#     def remove_instance(self, instance: QuadrantInstance):
+#         self.instances.remove(instance)
+
+#     def get_instance(
+#         self, quadrant_info: QuadrantsInformation
+#     ) -> Union[QuadrantInstance, None]:
+#         for instance in self.instances:
+#             if instance.quadrant_info == quadrant_info:
+#                 return instance
+#         return None

@@ -1,9 +1,11 @@
+from collections.abc import MutableSequence
 from functools import wraps
 import time
-from vedo import Volume,  colors, Mesh, Light
+import numpy as np
+from vedo import Volume, colors, Mesh, Light
 from pathlib import Path
 from vedo import Plotter
-from QuadrantInformation import QuadrantsInformation
+from QuadrantInformation import QuadrantsInformation, compute_center, load_centers, save_centers
 
 
 def time_init(func):
@@ -17,12 +19,14 @@ def time_init(func):
 
     return wrapper
 
+
 def is_int(s):
     try:
         int(s)
         return True
     except ValueError:
         return False
+
 
 def load_ct_scans_regions(
     data_path: Path,
@@ -32,6 +36,10 @@ def load_ct_scans_regions(
     for region_file in regions_path.glob("*.seg.nrrd"):
         quadrant_info = QuadrantsInformation.from_file_name(region_file)
         regions_dict[quadrant_info] = Volume(region_file)
+
+        print(f"Loaded {quadrant_info.name}")
+        # if quadrant_info == QuadrantsInformation.PELVIC_REGION:
+        #     break
 
     return regions_dict
 
@@ -43,9 +51,9 @@ class CT_Viewer(Plotter):
         self.interactor.RemoveObservers("KeyPressEvent")  # type: ignore
 
         ## State variables
-        self.active_quadrant = 0
-        self.quadrant_volumes_dict : dict[QuadrantsInformation, Volume] = {}
-        self.quadrant_slices_dict : dict[QuadrantsInformation, Mesh] = {}
+        self.active_quadrant = 6
+        self.quadrant_volumes_dict: dict[QuadrantsInformation, Volume] = {}
+        self.quadrant_slices_dict: dict[QuadrantsInformation, Mesh] = {}
 
         self.all_slices, self.all_objects, camera_params = self.setup_viewer()
 
@@ -82,6 +90,8 @@ class CT_Viewer(Plotter):
         ct_slice = self.slice_intensity_volume(self.ct_volume, index=index)
         self.quadrant_slices_dict = self.create_quadrant_slices(index=index)
         seg_slices_list = [s for s in self.quadrant_slices_dict.values()]
+
+        self.quadrant_center_dict = self.calculate_centers()
 
         # Set active quadrant
         quadrant = QuadrantsInformation.from_id(self.active_quadrant)
@@ -135,7 +145,7 @@ class CT_Viewer(Plotter):
         return ct_slice
 
     def create_quadrant_slices(self, index) -> dict[QuadrantsInformation, Mesh]:
-        slices_dict = {} 
+        slices_dict = {}
         for region, volume in self.quadrant_volumes_dict.items():
             seg_slice = volume.yslice(index)
             lut = colors.build_lut(
@@ -170,6 +180,18 @@ class CT_Viewer(Plotter):
 
         # return [seg_slice]
 
+    def calculate_centers(self) -> dict[QuadrantsInformation, np.ndarray]:
+        centers_dict = {}
+
+        try:
+            centers_dict = load_centers()
+        except FileNotFoundError:
+            for region, volume in self.quadrant_volumes_dict.items():
+                centers_dict[region] = compute_center(volume)
+            save_centers(centers_dict)
+
+        return centers_dict
+
     def on_key_press(self, evt):
         """Handle keyboard events"""
         key = evt.keypress
@@ -180,8 +202,8 @@ class CT_Viewer(Plotter):
 
         elif is_int(key):
             idx = int(key)
-            if idx < 7 and idx >=0:
-                print(f"activating {QuadrantsInformation.from_id(idx).name}")
+            if idx < 7 and idx >= 0:
+                # print(f"activating {QuadrantsInformation.from_id(idx).name}")
                 current_quadrant = QuadrantsInformation.from_id(self.active_quadrant)
                 self.quadrant_slices_dict[current_quadrant].alpha(0.0)
 
@@ -189,15 +211,51 @@ class CT_Viewer(Plotter):
                 self.quadrant_slices_dict[new_quadrant].alpha(0.4)
                 self.active_quadrant = idx
 
-        # elif key.lower() == "1":
-        #     print("region 1 selected")
-        #     for slice in self.all_slices:
-        #         slice.alpha(0.0)
-        #     self.render()
-        # elif key.lower() == "2":
-        #     print("region 2 selected")
-        #     for slice in self.all_slices:
-        #         slice.alpha(0.8)
+                # Change 3D camera position
+                # index 0 --> Left-right
+                # index 1 --> Anterior-posterior
+                # index 2 --> inferior-superior
+
+                volume = self.quadrant_volumes_dict[new_quadrant]
+                shape = volume.shape
+
+                vol_center = self.quadrant_center_dict[new_quadrant]
+                print(f"center {vol_center}")
+                print(f"shape {shape}")
+
+                anterior_plane_center = vol_center
+                anterior_plane_center[1] = int(shape[1])
+                print(f"ijk {anterior_plane_center}")
+
+                world_coords: MutableSequence[float]
+                world_coords = [0, 0, 0]
+                volume.dataset.TransformContinuousIndexToPhysicalPoint(
+                    anterior_plane_center, world_coords
+                )
+                print(f"world_coords {world_coords}")
+                world_coords = np.array(world_coords)
+
+                pos1 = np.array(self.at(1).camera.GetPosition())
+                fp1 = np.array(self.at(1).camera.GetFocalPoint())
+                print(f"camera pos {pos1}")
+
+                new_cam_pos1 = world_coords.copy()
+                vol_bounds = volume.bounds()
+                
+                new_cam_pos1[1] = vol_bounds[2] - 200
+
+                new_fp1 = world_coords.copy()
+
+                print(f"new fp1 {new_fp1}")
+                print(f"new pos1 {new_cam_pos1}")
+
+                self.at(1).camera.SetPosition(new_cam_pos1)
+                self.at(1).camera.SetFocalPoint(new_fp1)
+                self.at(1).camera.SetViewUp([0, 0, 1])
+                # self.at(1).render()
+                # self.interactor.render() 
+                self.at(1).renderer.ResetCameraClippingRange()
+
 
             self.render()
 
