@@ -52,8 +52,9 @@ def load_ct_scans_regions(
 class CT_Viewer(Plotter):
     @time_init
     def __init__(self):
-        super().__init__(N=2, bg="black", bg2="black", sharecam=False)
+        super().__init__(shape=(2, 3), bg="black", bg2="black", title="CT Viewer", sharecam=False)
         self.interactor.RemoveObservers("KeyPressEvent")  # type: ignore
+        self.set_layout()
 
         ## State variables
         self.active_quadrant = 6
@@ -64,8 +65,38 @@ class CT_Viewer(Plotter):
 
         self.add_callback("KeyPress", self.on_key_press)
 
-        self.at(0).show(self.all_slices, title="2D Slice", camera=camera_params)
-        self.at(1).show(self.all_objects, title="3D Mesh", camera=camera_params)
+        self.at(0).show(self.all_slices, camera=camera_params)
+        self.at(1).show(self.all_objects, camera=camera_params)
+        self.at(2).show(self.all_slices, camera=camera_params)
+
+    def set_layout(self):
+        # --- helper to compute viewport (xmin, ymin, xmax, ymax) ---
+        def viewport(col, row):
+            # row 0 is top
+            y0 = 1 - sum(row_fracs[: row + 1])
+            y1 = y0 + row_fracs[row]
+            x0 = sum(col_fracs[:col])
+            x1 = x0 + col_fracs[col]
+            return [x0, y0, x1, y1]
+
+        col_ratios = [1, 4, 4]
+        row_ratios = [5, 1]
+
+        # normalise
+        col_fracs = [c / sum(col_ratios) for c in col_ratios]
+        row_fracs = [r / sum(row_ratios) for r in row_ratios]
+
+        # set custom viewports for first-row renderers
+        for c in range(3):
+            self.renderers[c].SetViewport(viewport(c, 0))
+
+        # second row: single renderer spanning entire width
+        bottom = self.renderers[3]  # flat index row1,col0
+        bottom.SetViewport([0.0, 0.0, 1.0, row_fracs[1]])
+
+        # Move unsed canvaces out of the window.
+        self.renderers[4].SetViewport([1.0, 0.0, 1.0, 2.0])
+        self.renderers[5].SetViewport([1.0, 0.0, 1.0, 2.0])
 
     def load_volumes(self, data_path):
         patient_id = 6
@@ -237,7 +268,7 @@ class CT_Viewer(Plotter):
         center_in_world: MutableSequence[float]
         center_in_world = [0, 0, 0]
         volume.dataset.TransformContinuousIndexToPhysicalPoint(
-            anterior_plane_center,   # type: ignore
+            anterior_plane_center,  # type: ignore
             center_in_world,
         )
         center_in_world_np = np.array(center_in_world)
@@ -247,10 +278,10 @@ class CT_Viewer(Plotter):
         vol_bounds = volume.bounds()
         new_cam_pos1[1] = vol_bounds[2] - 200
 
-        self.at(1).camera.SetPosition(new_cam_pos1) #type: ignore
-        self.at(1).camera.SetFocalPoint(center_in_world) #type: ignore
-        self.at(1).camera.SetViewUp([0, 0, 1]) #type: ignore
-        self.at(1).renderer.ResetCameraClippingRange() #type: ignore
+        self.at(1).camera.SetPosition(new_cam_pos1)  # type: ignore
+        self.at(1).camera.SetFocalPoint(center_in_world)  # type: ignore
+        self.at(1).camera.SetViewUp([0, 0, 1])  # type: ignore
+        self.at(1).renderer.ResetCameraClippingRange()  # type: ignore
 
 
 def create_camera_params(vol_center, vol_bounds):
