@@ -2,7 +2,7 @@ from collections.abc import MutableSequence
 from functools import wraps
 import time
 import numpy as np
-from vedo import Volume, colors, Mesh, Light
+from vedo import Volume, colors, Mesh, Light, Text2D
 from pathlib import Path
 from vedo import Plotter
 from QuadrantInformation import (
@@ -48,6 +48,18 @@ def load_ct_scans_regions(
 
     return regions_dict
 
+def text_generator(quadrant_name: str, carcinosis_count: int, lymph_node_count: int) -> str:
+
+    usage_text = (
+        f"Anatomical region: {quadrant_name}\n"
+        f"Carcinosis count: {carcinosis_count}\n"
+        f"Lymph node count: {lymph_node_count}\n"
+        "                                                       \n"
+        "\n"
+        # "Anatomical region: Left Flank and Bowel Resection (BR) \n" # longest text
+    )
+
+    return usage_text
 
 class CT_Viewer(Plotter):
     @time_init
@@ -65,12 +77,19 @@ class CT_Viewer(Plotter):
         self.quadrant_slices_dict: dict[QuadrantsInformation, Mesh] = {}
 
         self.all_slices, self.all_objects, camera_params = self.setup_viewer()
+        self.usage_text = text_generator(QuadrantsInformation.from_id(self.active_quadrant).name, 0, 0)
 
         self.add_callback("KeyPress", self.on_key_press)
 
         self.at(0).show(self.all_slices, camera=camera_params)
         self.at(1).show(self.all_objects, camera=camera_params)
         self.at(2).show(self.all_slices, camera=camera_params)
+
+
+        self.text_handle = Text2D(
+            self.usage_text, font="Calco", pos="top-left", s=1.2, bg="yellow", alpha=0.25
+        )
+        self.at(3).add(self.text_handle)
 
     def set_layout(self):
         # ratios
@@ -246,6 +265,9 @@ class CT_Viewer(Plotter):
                 self.active_quadrant = idx
 
                 self.position_camera_in_region(new_quadrant)
+
+                new_text = text_generator(new_quadrant.name, 0, 0)
+                self.text_handle.text(new_text)
 
             self.render()
 
