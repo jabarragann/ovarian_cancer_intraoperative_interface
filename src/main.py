@@ -52,7 +52,10 @@ def load_ct_scans_regions(
 class CT_Viewer(Plotter):
     @time_init
     def __init__(self):
-        super().__init__(shape=(2, 3), bg="black", bg2="black", title="CT Viewer", sharecam=False)
+        kwargs = {"sharecam": False, "size": (1200, 800)}
+        kwargs.update({"bg": "black", "bg2": "black"})
+
+        super().__init__(shape=(2, 3), title="CT Viewer", **kwargs)
         self.interactor.RemoveObservers("KeyPressEvent")  # type: ignore
         self.set_layout()
 
@@ -70,31 +73,26 @@ class CT_Viewer(Plotter):
         self.at(2).show(self.all_slices, camera=camera_params)
 
     def set_layout(self):
-        # --- helper to compute viewport (xmin, ymin, xmax, ymax) ---
-        def viewport(col, row):
-            # row 0 is top
-            y0 = 1 - sum(row_fracs[: row + 1])
-            y1 = y0 + row_fracs[row]
-            x0 = sum(col_fracs[:col])
-            x1 = x0 + col_fracs[col]
-            return [x0, y0, x1, y1]
-
-        col_ratios = [1, 4, 4]
-        row_ratios = [5, 1]
-
+        # ratios
+        # col_ratios = [2, 4, 4]
+        row_ratios = [8, 2]
         # normalise
-        col_fracs = [c / sum(col_ratios) for c in col_ratios]
+        # col_fracs = [c / sum(col_ratios) for c in col_ratios]
         row_fracs = [r / sum(row_ratios) for r in row_ratios]
 
-        # set custom viewports for first-row renderers
-        for c in range(3):
-            self.renderers[c].SetViewport(viewport(c, 0))
-
+        # top row.
+        top_border = 0.90
+        big_canvas_height = 0.6
+        self.renderers[0].SetViewport([0.025, top_border - 0.3, 0.175, top_border])
+        self.renderers[1].SetViewport(
+            [0.225, top_border - big_canvas_height, 0.575, top_border]
+        )
+        self.renderers[2].SetViewport(
+            [0.625, top_border - big_canvas_height, 0.975, top_border]
+        )
         # second row: single renderer spanning entire width
-        bottom = self.renderers[3]  # flat index row1,col0
-        bottom.SetViewport([0.0, 0.0, 1.0, row_fracs[1]])
-
-        # Move unsed canvaces out of the window.
+        self.renderers[3].SetViewport([0.0, 0.0, 2.0, row_fracs[1]])
+        # remaining two canvaces are moved out.
         self.renderers[4].SetViewport([1.0, 0.0, 1.0, 2.0])
         self.renderers[5].SetViewport([1.0, 0.0, 1.0, 2.0])
 
