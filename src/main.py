@@ -70,7 +70,7 @@ class CT_Viewer(Plotter):
         kwargs = {"sharecam": False, "size": (1200, 800)}
         kwargs.update({"bg": "black", "bg2": "black"})
 
-        super().__init__(shape=(2, 3), title="CT Viewer", **kwargs)
+        super().__init__(shape=(2, 4), title="CT Viewer", **kwargs)
         self.interactor.RemoveObservers("KeyPressEvent")  # type: ignore
         self.set_layout()
 
@@ -86,9 +86,9 @@ class CT_Viewer(Plotter):
 
         self.add_callback("KeyPress", self.on_key_press)
 
-        self.at(0).show(self.all_slices, camera=camera_params)
-        self.at(1).show(self.all_objects, camera=camera_params)
-        self.at(2).show(self.all_slices, camera=camera_params)
+        self.at(1).show(self.all_slices, camera=camera_params)
+        self.at(4).show(self.all_slices, camera=camera_params)
+        self.at(5).show(self.all_objects, camera=camera_params)
 
         self.text_handle = Text2D(
             self.usage_text,
@@ -98,31 +98,31 @@ class CT_Viewer(Plotter):
             bg="yellow",
             alpha=0.25,
         )
-        self.at(3).add(self.text_handle)
+        self.at(6).add(self.text_handle)
 
     def set_layout(self):
         # ratios
-        # col_ratios = [2, 4, 4]
-        row_ratios = [8, 2]
-        # normalise
-        # col_fracs = [c / sum(col_ratios) for c in col_ratios]
-        row_fracs = [r / sum(row_ratios) for r in row_ratios]
+        col_ratios = [3, 3, 3]
+        # row_ratios = [1, 4, 4, 1] --> For reference only
+        col_fracs = [c / sum(col_ratios) for c in col_ratios]
+        col_fracs_sum = [sum(col_fracs[:i]) for i in range(len(col_fracs))]
 
-        # top row.
+        ## Define viewports helper to compute viewport (xmin, ymin, xmax, ymax)
         top_border = 0.90
-        big_canvas_height = 0.6
-        self.renderers[0].SetViewport([0.025, top_border - 0.3, 0.175, top_border])
-        self.renderers[1].SetViewport(
-            [0.225, top_border - big_canvas_height, 0.575, top_border]
-        )
-        self.renderers[2].SetViewport(
-            [0.625, top_border - big_canvas_height, 0.975, top_border]
-        )
-        # second row: single renderer spanning entire width
-        self.renderers[3].SetViewport([0.0, 0.0, 2.0, row_fracs[1]])
-        # remaining two canvaces are moved out.
-        self.renderers[4].SetViewport([1.0, 0.0, 1.0, 2.0])
-        self.renderers[5].SetViewport([1.0, 0.0, 1.0, 2.0])
+
+        # row 1 
+        self.renderers[0].SetViewport([0.0, top_border, 1.0, 1.0])
+        # row 2
+        self.renderers[1].SetViewport([ col_fracs_sum[0] , 0.5, col_fracs_sum[1] , top_border  ])
+        self.renderers[2].SetViewport([ col_fracs_sum[1] , 0.5, col_fracs_sum[2] , top_border])
+        self.renderers[3].SetViewport([ col_fracs_sum[2] , 0.5, 1.0, top_border])
+        # row 3
+        self.renderers[4].SetViewport([0.0, 0.1, 0.5, 0.5])
+        self.renderers[5].SetViewport([0.5, 0.1, 1.0, 0.5])
+        # row 4
+        self.renderers[6].SetViewport([0.0, 0.0, 1.0, 0.1])
+        # Move out of the way the unused viewport
+        self.renderers[7].SetViewport([1.0, 1.0, 2.0, 2.0])
 
     def load_volumes(self, data_path):
         patient_id = 6
