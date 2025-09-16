@@ -48,8 +48,10 @@ def load_ct_scans_regions(
 
     return regions_dict
 
-def text_generator(quadrant_name: str, carcinosis_count: int, lymph_node_count: int) -> str:
 
+def text_generator(
+    quadrant_name: str, carcinosis_count: int, lymph_node_count: int
+) -> str:
     usage_text = (
         f"Anatomical region: {quadrant_name}\n"
         f"Carcinosis count: {carcinosis_count}\n"
@@ -60,6 +62,7 @@ def text_generator(quadrant_name: str, carcinosis_count: int, lymph_node_count: 
     )
 
     return usage_text
+
 
 class CT_Viewer(Plotter):
     @time_init
@@ -77,7 +80,9 @@ class CT_Viewer(Plotter):
         self.quadrant_slices_dict: dict[QuadrantsInformation, Mesh] = {}
 
         self.all_slices, self.all_objects, camera_params = self.setup_viewer()
-        self.usage_text = text_generator(QuadrantsInformation.from_id(self.active_quadrant).name, 0, 0)
+        self.usage_text = text_generator(
+            QuadrantsInformation.from_id(self.active_quadrant).name, 0, 0
+        )
 
         self.add_callback("KeyPress", self.on_key_press)
 
@@ -85,9 +90,13 @@ class CT_Viewer(Plotter):
         self.at(1).show(self.all_objects, camera=camera_params)
         self.at(2).show(self.all_slices, camera=camera_params)
 
-
         self.text_handle = Text2D(
-            self.usage_text, font="Calco", pos="top-left", s=1.2, bg="yellow", alpha=0.25
+            self.usage_text,
+            font="Calco",
+            pos="top-left",
+            s=1.2,
+            bg="yellow",
+            alpha=0.25,
         )
         self.at(3).add(self.text_handle)
 
@@ -126,10 +135,11 @@ class CT_Viewer(Plotter):
         # print(ct_path.exists())
 
         ct = Volume(ct_path)
-        seg = Volume(complete_path / "regions" / "pelvic_region_quadrant.seg.nrrd")
+        # seg = Volume(complete_path / "regions" / "pelvic_region_quadrant.seg.nrrd")
+        disease_annotations = Volume(complete_path / "radiologist_annotations.seg.nrrd")
         region_seg_dict = load_ct_scans_regions(complete_path)
 
-        return ct, seg, region_seg_dict
+        return ct, disease_annotations, region_seg_dict
 
     def setup_viewer(self):
         data_path = Path("/home/juan95/JuanData/OvarianCancerDataset/CT_scans")
@@ -142,6 +152,7 @@ class CT_Viewer(Plotter):
 
         ct_slice = self.slice_intensity_volume(self.ct_volume, index=index)
         self.quadrant_slices_dict = self.create_quadrant_slices(index=index)
+        # self.disease_annotations_slice = self.create_disease_slice(index=282)
         seg_slices_list = [s for s in self.quadrant_slices_dict.values()]
 
         self.quadrant_center_dict = self.calculate_centers()
@@ -196,6 +207,22 @@ class CT_Viewer(Plotter):
         ct_slice.cmap("gray", vmin=vmin, vmax=vmax)
 
         return ct_slice
+
+    # def create_disease_slice(self, index: int) -> list[Mesh]:
+    #     volume_slice = self.ct_volume.yslice(index) 
+    #     disease_slice = self.seg_volume.yslice(index)
+
+    #     lut = colors.build_lut(
+    #         [
+    #             (0, (0, 0, 0), 0.0),  # background (scalar, color, alpha)
+    #             (1, region.color),  # segmentation
+    #         ],
+    #         vmin=0.7,
+    #         vmax=1.2,
+    #         below_alpha=0.0,  # type: ignore
+    #         above_alpha=1.0,  # type: ignore
+    #     )
+    #     pass
 
     def create_quadrant_slices(self, index) -> dict[QuadrantsInformation, Mesh]:
         slices_dict = {}
