@@ -37,7 +37,7 @@ def create_camera_params(vol_center, vol_bounds):
     ## Warning:
     ## For some reason precisely aligning with the volume center will the camera go black.
     camera_params_slices["axial"] = {
-        "pos": [vol_center[0]+0.001, vol_center[1], vol_bounds[4] - 500],
+        "pos": [vol_center[0] + 0.001, vol_center[1], vol_bounds[4] - 500],
         "focalPoint": slice_focal_point,
         "viewup": [0, -1, 0],
     }
@@ -77,6 +77,7 @@ def main():
 
     ## Slices and visualization
     slice_index = 270
+    # slice_index = 116
     # slice_index = 282
     # slice_index = 227
 

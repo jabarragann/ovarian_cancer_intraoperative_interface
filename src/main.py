@@ -1,3 +1,4 @@
+from collections import namedtuple
 from collections.abc import MutableSequence
 from functools import wraps
 import time
@@ -11,6 +12,7 @@ from QuadrantInformation import (
     load_centers,
     save_centers,
 )
+from VedoSegmentLoader import VedoSegmentLoader
 
 
 def time_init(func):
@@ -79,16 +81,20 @@ class CT_Viewer(Plotter):
         self.quadrant_volumes_dict: dict[QuadrantsInformation, Volume] = {}
         self.quadrant_slices_dict: dict[QuadrantsInformation, Mesh] = {}
 
-        self.all_slices, self.all_objects, camera_params = self.setup_viewer()
+        self.all_slices, self.all_objects = self.setup_viewer()
         self.usage_text = text_generator(
             QuadrantsInformation.from_id(self.active_quadrant).name, 0, 0
         )
 
         self.add_callback("KeyPress", self.on_key_press)
 
-        self.at(1).show(self.all_slices, camera=camera_params)
-        self.at(4).show(self.all_slices, camera=camera_params)
-        self.at(5).show(self.all_objects, camera=camera_params)
+        # self.at(1).show(self.all_slices, camera=camera_params)
+        self.at(1).show(self.disease_slice["coronal"], camera=self.camera_params_slices["coronal"])
+        self.at(2).show(self.disease_slice["sagittal"], camera=self.camera_params_slices["sagittal"])
+        self.at(3).show(self.disease_slice["axial"], camera=self.camera_params_slices["axial"])
+
+        self.at(4).show(self.all_slices, camera=self.camera_params_3d)
+        self.at(5).show(self.all_objects, camera=self.camera_params_3d)
 
         self.text_handle = Text2D(
             self.usage_text,
@@ -110,12 +116,16 @@ class CT_Viewer(Plotter):
         ## Define viewports helper to compute viewport (xmin, ymin, xmax, ymax)
         top_border = 0.90
 
-        # row 1 
+        # row 1
         self.renderers[0].SetViewport([0.0, top_border, 1.0, 1.0])
         # row 2
-        self.renderers[1].SetViewport([ col_fracs_sum[0] , 0.5, col_fracs_sum[1] , top_border  ])
-        self.renderers[2].SetViewport([ col_fracs_sum[1] , 0.5, col_fracs_sum[2] , top_border])
-        self.renderers[3].SetViewport([ col_fracs_sum[2] , 0.5, 1.0, top_border])
+        self.renderers[1].SetViewport(
+            [col_fracs_sum[0], 0.5, col_fracs_sum[1], top_border]
+        )
+        self.renderers[2].SetViewport(
+            [col_fracs_sum[1], 0.5, col_fracs_sum[2], top_border]
+        )
+        self.renderers[3].SetViewport([col_fracs_sum[2], 0.5, 1.0, top_border])
         # row 3
         self.renderers[4].SetViewport([0.0, 0.1, 0.5, 0.5])
         self.renderers[5].SetViewport([0.5, 0.1, 1.0, 0.5])
@@ -136,23 +146,27 @@ class CT_Viewer(Plotter):
 
         ct = Volume(ct_path)
         # seg = Volume(complete_path / "regions" / "pelvic_region_quadrant.seg.nrrd")
-        disease_annotations = Volume(complete_path / "radiologist_annotations.seg.nrrd")
+        vedo_segment_loader = VedoSegmentLoader(
+            complete_path / "radiologist_annotations.seg.nrrd"
+        )
         region_seg_dict = load_ct_scans_regions(complete_path)
 
-        return ct, disease_annotations, region_seg_dict
+        return ct, vedo_segment_loader, region_seg_dict
 
     def setup_viewer(self):
         data_path = Path("/home/juan95/JuanData/OvarianCancerDataset/CT_scans")
 
         ## Panel 1 assets - Load slices
         index = 270
-        self.ct_volume, self.seg_volume, self.quadrant_volumes_dict = self.load_volumes(
-            data_path
+        self.ct_volume, self.vedo_segment_loader, self.quadrant_volumes_dict = (
+            self.load_volumes(data_path)
         )
 
+        # Create slices
         ct_slice = self.slice_intensity_volume(self.ct_volume, index=index)
         self.quadrant_slices_dict = self.create_quadrant_slices(index=index)
-        # self.disease_annotations_slice = self.create_disease_slice(index=282)
+        self.disease_slice = self.create_disease_slice(self.ct_volume, index=index)
+
         seg_slices_list = [s for s in self.quadrant_slices_dict.values()]
 
         self.quadrant_center_dict = self.calculate_centers()
@@ -168,7 +182,7 @@ class CT_Viewer(Plotter):
         ## Panel 2 assets
         vol_bounds = self.ct_volume.bounds()  # xmin,xmax, ymin,ymax, zmin,zmax
         vol_center = self.ct_volume.center()
-        camera_params = create_camera_params(vol_center, vol_bounds)
+        self.camera_params_3d, self.camera_params_slices = create_camera_params(vol_center, vol_bounds)
         # print(f"vol_bounds: {vol_bounds}")
         # print(f"vol_center: {vol_center}")
         # print(f"vol origin {ct_volume.origin()}")
@@ -191,15 +205,21 @@ class CT_Viewer(Plotter):
 
         all_slices = [ct_slice, seg_slices_list]
 
-        return all_slices, all_objects, camera_params
+        return all_slices, all_objects
 
-    def slice_intensity_volume(self, ct_volume, index, W=400, L=50):
+    def slice_intensity_volume(self, ct_volume, index, plane='y', W=400, L=50):
         """
         Window level for soft tissue
         W=400
         L=50
         """
-        ct_slice = ct_volume.yslice(index)
+        assert plane in ['x','y','z'], "Plane must be 'x', 'y' or 'z'"
+        if plane == "x":
+            ct_slice = ct_volume.xslice(index)
+        elif plane == "y":
+            ct_slice = ct_volume.yslice(index)
+        elif plane == "z":
+            ct_slice = ct_volume.zslice(index)
 
         vmin = L - W / 2
         vmax = L + W / 2
@@ -208,21 +228,27 @@ class CT_Viewer(Plotter):
 
         return ct_slice
 
-    # def create_disease_slice(self, index: int) -> list[Mesh]:
-    #     volume_slice = self.ct_volume.yslice(index) 
-    #     disease_slice = self.seg_volume.yslice(index)
+    def create_disease_slice(self, ct_volume: Volume, index: int) -> dict[str, list[Mesh]]:
 
-    #     lut = colors.build_lut(
-    #         [
-    #             (0, (0, 0, 0), 0.0),  # background (scalar, color, alpha)
-    #             (1, region.color),  # segmentation
-    #         ],
-    #         vmin=0.7,
-    #         vmax=1.2,
-    #         below_alpha=0.0,  # type: ignore
-    #         above_alpha=1.0,  # type: ignore
-    #     )
-    #     pass
+        slices_dict : dict[str, list[Mesh]] = {}
+
+        SegmentInfo = namedtuple('Segment', ['name', 'color'])
+        lymph_segment = SegmentInfo("lymph node", "#9725e8")
+        primary_segment = SegmentInfo("primary", "#45e825")
+        carcinosis_segment = SegmentInfo("carcinosis", "#f0e964")
+
+        all_segments = (lymph_segment, primary_segment, carcinosis_segment)
+        orthogonal_planes = (("coronal", "y"), ("sagittal", "x"), ("axial", "z"))
+        for plane_name, plane in orthogonal_planes: 
+            slices_dict[plane_name] = []
+            ct_slice = self.slice_intensity_volume(ct_volume, index=index, plane=plane)
+            slices_dict[plane_name].append(ct_slice)
+
+            for segment in all_segments:
+                segment_slice = self.vedo_segment_loader.get_slice(segment.name, index, plane=plane, color=segment.color)
+                slices_dict[plane_name].append(segment_slice)
+
+        return slices_dict
 
     def create_quadrant_slices(self, index) -> dict[QuadrantsInformation, Mesh]:
         slices_dict = {}
@@ -325,20 +351,48 @@ class CT_Viewer(Plotter):
         vol_bounds = volume.bounds()
         new_cam_pos1[1] = vol_bounds[2] - 200
 
-        self.at(1).camera.SetPosition(new_cam_pos1)  # type: ignore
-        self.at(1).camera.SetFocalPoint(center_in_world)  # type: ignore
-        self.at(1).camera.SetViewUp([0, 0, 1])  # type: ignore
-        self.at(1).renderer.ResetCameraClippingRange()  # type: ignore
+        self.at(5).camera.SetPosition(new_cam_pos1)  # type: ignore
+        self.at(5).camera.SetFocalPoint(center_in_world)  # type: ignore
+        self.at(5).camera.SetViewUp([0, 0, 1])  # type: ignore
+        self.at(5).renderer.ResetCameraClippingRange()  # type: ignore
 
 
 def create_camera_params(vol_center, vol_bounds):
+    # Bounding box --> [xmin,xmax, ymin,ymax, zmin,zmax].
+    print(vol_center)
+    print(vol_bounds)
     slice_focal_point = [vol_center[0], vol_center[1], vol_center[2]]
-    camera_params = {
+    camera_params_3d = {
         "pos": [vol_center[0], vol_bounds[2] - 550, vol_center[2]],
         "focalPoint": slice_focal_point,
         "viewup": [0, 0, 1],
     }
-    return camera_params
+
+    # camera for slice panes
+    # (("coronal", "y"), ("sagittal", "x"), ("axial", "z"))
+    camera_params_slices: dict[str, dict[str, list[float]]] = {}
+    camera_params_slices["coronal"] = {
+        "pos": [vol_center[0], vol_bounds[2] - 550, vol_center[2]],
+        "focalPoint": slice_focal_point,
+        "viewup": [0, 0, 1],
+    }
+    camera_params_slices["sagittal"] = {
+        "pos": [vol_bounds[1] + 550, vol_center[1], vol_center[2]],
+        "focalPoint": slice_focal_point,
+        "viewup": [0, 0, 1],
+    }
+    ## Warning:
+    ## For some reason precisely aligning with the volume center will the camera go black.
+    camera_params_slices["axial"] = {
+        "pos": [vol_center[0] + 0.001, vol_center[1], vol_bounds[4] - 500],
+        "focalPoint": slice_focal_point,
+        "viewup": [0, -1, 0],
+    }
+    # print("axial pose:", camera_params_slices["axial"]["pos"])
+    # print("coronal pose:", camera_params_slices["coronal"]["pos"])
+    # print("sagittal pose:", camera_params_slices["sagittal"]["pos"])
+
+    return camera_params_3d, camera_params_slices
 
 
 def parse_mtl(mtl_file: Path):
