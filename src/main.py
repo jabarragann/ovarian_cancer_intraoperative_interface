@@ -82,27 +82,65 @@ class CT_Viewer(Plotter):
         self.quadrant_slices_dict: dict[QuadrantsInformation, Mesh] = {}
 
         self.all_slices, self.all_objects = self.setup_viewer()
-        self.usage_text = text_generator(
-            QuadrantsInformation.from_id(self.active_quadrant).name, 0, 0
-        )
 
         self.add_callback("KeyPress", self.on_key_press)
 
         # self.at(1).show(self.all_slices, camera=camera_params)
-        self.at(1).show(self.disease_slice["coronal"], camera=self.camera_params_slices["coronal"])
-        self.at(2).show(self.disease_slice["sagittal"], camera=self.camera_params_slices["sagittal"])
-        self.at(3).show(self.disease_slice["axial"], camera=self.camera_params_slices["axial"])
+        self.at(1).show(
+            self.disease_slice["coronal"], camera=self.camera_params_slices["coronal"]
+        )
+        self.at(2).show(
+            self.disease_slice["sagittal"], camera=self.camera_params_slices["sagittal"]
+        )
+        self.at(3).show(
+            self.disease_slice["axial"], camera=self.camera_params_slices["axial"]
+        )
 
-        self.at(4).show(self.all_slices, camera=self.camera_params_3d)
+        self.at(4).show(self.all_slices, camera=self.camera_params_regions)
         self.at(5).show(self.all_objects, camera=self.camera_params_3d)
+
+        ## TEXT LABELS
+
+        offset = 0.33 / 2
+        self.coronal_text = Text2D(
+            "Coronal",
+            pos=(0.33 - offset, 0.5),  # type: ignore
+            s=1.4,
+            c="white",
+        )
+        self.sagittal_text = Text2D(
+            "Sagittal",
+            pos=(0.66 - offset, 0.5),  # type: ignore
+            s=1.4,
+            c="white",
+        )
+        self.axial_text = Text2D("Axial", pos=(0.99 - offset, 0.5), s=1.4, c="white")  # type: ignore
+        self.at(0).add(self.coronal_text)
+        self.at(0).add(self.sagittal_text)
+        self.at(0).add(self.axial_text)
+
+        self.station_text = "Region: " + QuadrantsInformation.from_id(self.active_quadrant).name
+        self.station_text_vedo = Text2D(
+            self.station_text,
+            pos="top-left",
+            s=1.1,
+            c="white",
+            # bg="yellow",
+            # alpha=0.25,
+        )
+        self.at(4).add(self.station_text_vedo)
+        # self.usage_text = text_generator(
+        #     QuadrantsInformation.from_id(self.active_quadrant).name, 0, 0
+        # )
+        self.usage_text = "Carcinosis: 0.0      Lymph Nodes: 0.0      primary tumor: 0.0   \n"
 
         self.text_handle = Text2D(
             self.usage_text,
             font="Calco",
             pos="top-left",
-            s=1.2,
-            bg="yellow",
-            alpha=0.25,
+            s=1.4,
+            # bg="yellow",
+            # alpha=0.25,
         )
         self.at(6).add(self.text_handle)
 
@@ -182,7 +220,9 @@ class CT_Viewer(Plotter):
         ## Panel 2 assets
         vol_bounds = self.ct_volume.bounds()  # xmin,xmax, ymin,ymax, zmin,zmax
         vol_center = self.ct_volume.center()
-        self.camera_params_3d, self.camera_params_slices = create_camera_params(vol_center, vol_bounds)
+        self.camera_params_3d, self.camera_params_slices, self.camera_params_regions = (
+            create_camera_params(vol_center, vol_bounds)
+        )
         # print(f"vol_bounds: {vol_bounds}")
         # print(f"vol_center: {vol_center}")
         # print(f"vol origin {ct_volume.origin()}")
@@ -207,13 +247,13 @@ class CT_Viewer(Plotter):
 
         return all_slices, all_objects
 
-    def slice_intensity_volume(self, ct_volume, index, plane='y', W=400, L=50):
+    def slice_intensity_volume(self, ct_volume, index, plane="y", W=400, L=50):
         """
         Window level for soft tissue
         W=400
         L=50
         """
-        assert plane in ['x','y','z'], "Plane must be 'x', 'y' or 'z'"
+        assert plane in ["x", "y", "z"], "Plane must be 'x', 'y' or 'z'"
         if plane == "x":
             ct_slice = ct_volume.xslice(index)
         elif plane == "y":
@@ -228,24 +268,27 @@ class CT_Viewer(Plotter):
 
         return ct_slice
 
-    def create_disease_slice(self, ct_volume: Volume, index: int) -> dict[str, list[Mesh]]:
+    def create_disease_slice(
+        self, ct_volume: Volume, index: int
+    ) -> dict[str, list[Mesh]]:
+        slices_dict: dict[str, list[Mesh]] = {}
 
-        slices_dict : dict[str, list[Mesh]] = {}
-
-        SegmentInfo = namedtuple('Segment', ['name', 'color'])
+        SegmentInfo = namedtuple("Segment", ["name", "color"])
         lymph_segment = SegmentInfo("lymph node", "#9725e8")
         primary_segment = SegmentInfo("primary", "#45e825")
         carcinosis_segment = SegmentInfo("carcinosis", "#f0e964")
 
         all_segments = (lymph_segment, primary_segment, carcinosis_segment)
         orthogonal_planes = (("coronal", "y"), ("sagittal", "x"), ("axial", "z"))
-        for plane_name, plane in orthogonal_planes: 
+        for plane_name, plane in orthogonal_planes:
             slices_dict[plane_name] = []
             ct_slice = self.slice_intensity_volume(ct_volume, index=index, plane=plane)
             slices_dict[plane_name].append(ct_slice)
 
             for segment in all_segments:
-                segment_slice = self.vedo_segment_loader.get_slice(segment.name, index, plane=plane, color=segment.color)
+                segment_slice = self.vedo_segment_loader.get_slice(
+                    segment.name, index, plane=plane, color=segment.color
+                )
                 slices_dict[plane_name].append(segment_slice)
 
         return slices_dict
@@ -306,6 +349,11 @@ class CT_Viewer(Plotter):
         elif key.lower() == "t":
             print("Help key pressed")
 
+        elif key.lower() == "h":
+            print("position" ,self.at(4).camera.GetPosition())  # type: ignore
+            print("focal", self.at(4).camera.GetFocalPoint())  # type: ignore
+            print("viewup", self.at(4).camera.GetViewUp())  # type: ignore
+
         elif is_int(key):
             idx = int(key)
             if idx < 7 and idx >= 0:
@@ -319,8 +367,10 @@ class CT_Viewer(Plotter):
 
                 self.position_camera_in_region(new_quadrant)
 
-                new_text = text_generator(new_quadrant.name, 0, 0)
-                self.text_handle.text(new_text)
+                # new_text = text_generator(new_quadrant.name, 0, 0)
+                # self.text_handle.text(new_text)
+                self.station_text = "Region: " + new_quadrant.name
+                self.station_text_vedo.text(self.station_text)
 
             self.render()
 
@@ -359,12 +409,17 @@ class CT_Viewer(Plotter):
 
 def create_camera_params(vol_center, vol_bounds):
     # Bounding box --> [xmin,xmax, ymin,ymax, zmin,zmax].
-    print(vol_center)
-    print(vol_bounds)
+
     slice_focal_point = [vol_center[0], vol_center[1], vol_center[2]]
     camera_params_3d = {
         "pos": [vol_center[0], vol_bounds[2] - 550, vol_center[2]],
         "focalPoint": slice_focal_point,
+        "viewup": [0, 0, 1],
+    }
+
+    camera_params_regions = {
+        "pos": [52.53618716564412, -1168.8585835176505, 1181.633188101601],
+        "focalPoint": [52.53618716564412, -0.48538350000004016, 1181.633188101601],
         "viewup": [0, 0, 1],
     }
 
@@ -392,7 +447,7 @@ def create_camera_params(vol_center, vol_bounds):
     # print("coronal pose:", camera_params_slices["coronal"]["pos"])
     # print("sagittal pose:", camera_params_slices["sagittal"]["pos"])
 
-    return camera_params_3d, camera_params_slices
+    return camera_params_3d, camera_params_slices, camera_params_regions
 
 
 def parse_mtl(mtl_file: Path):
