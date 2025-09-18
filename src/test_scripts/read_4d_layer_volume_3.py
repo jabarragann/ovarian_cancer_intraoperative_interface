@@ -77,8 +77,21 @@ def slice_factory(ct, vedo_segment_loader):
     return get_slices
 
 
-def create_cb(plotter):
+def create_cb(plotter, get_slice, create_crosshair, plane_to_name, ct):
+    u_index = 0
+    target_in_voxel = [(283, 281, 175), (248, 268, 176), (277,242, 129)]
+    target_in_world = []
+
+    for voxel in target_in_voxel:
+        temp_world = [0.0, 0.0, 0.0]
+        ct.dataset.TransformContinuousIndexToPhysicalPoint(
+            voxel,
+            temp_world,  # type: ignore
+        )
+        target_in_world.append(temp_world)
+
     def on_key_press(event):
+        nonlocal u_index
         key = event.keypress
         print(f"Key pressed: {key}")
         if key == "q":
@@ -87,25 +100,35 @@ def create_cb(plotter):
             # print(plotter.at(2).camera.GetPosition())
             print(f"actual camera pose - {plotter.at(2).camera.GetPosition()}")
 
-    return on_key_press
+        elif key == "u":
+            u_index = (u_index + 1) % 3
+            camera_params_slices = create_camera_params(target_in_world[u_index])
+            update_plotters(
+                target_in_voxel[u_index], target_in_world[u_index], camera_params_slices
+            )
+        
+        plotter.render()
 
-# def create_cross_hair(target_in_world, slice_mesh):
-#     c = target_in_world
-#     xmin, xmax, ymin, ymax, zmin, zmax = slice_mesh.bounds()
 
-#     # Amount to extend from the center (here ±30 % of full size)
-#     x_half = (xmax - xmin) * 0.1
-#     y_half = (ymax - ymin) * 0.1
+    def update_plotters(target_voxel, target_world, camera_params_slices):
+        # print(f"target_voxel: {target_voxel}")
+        # print(f"target_world: {target_world}")
 
-#     # Short cross-hair lines
-#     hline = Line((c[0] - x_half, c[1], c[2]),
-#                 (c[0] + x_half, c[1], c[2]),
-#                 c="yellow", lw=2)
-#     vline = Line((c[0], c[1] - y_half, c[2]),
-#                 (c[0], c[1] + y_half, c[2]),
-#                 c="yellow", lw=2)
+        # Remove old actors from each viewport
+        for i in range(3):
+            plotter.at(i).remove(*current_actors[i])
 
-#     return [hline, vline]
+        # Build new actors and add them
+        axes = ("x", "y", "z")
+        for i, ax in enumerate(axes):
+            slices = get_slice(ax, target_voxel["xyz".index(ax)])
+            crosshair = create_crosshair(target_world, slices[0], ax)
+            current_actors[i] = slices + crosshair
+            plotter.at(i).add(*current_actors[i])
+
+            plotter.at(i).camera = camera_params_slices[plane_to_name[ax]]
+
+    return on_key_press, update_plotters
 
 def create_crosshair(target, slice_mesh, plane, size=0.02):
     """
@@ -117,19 +140,19 @@ def create_crosshair(target, slice_mesh, plane, size=0.02):
 
     cx, cy, cz = target
 
-    if plane == "z":   # axial -> lines in X,Y
+    if plane == "z":  # axial -> lines in X,Y
         dx = (x1 - x0) * size
         dy = (y1 - y0) * size
         hline = Line((cx - dx, cy, cz), (cx + dx, cy, cz), c="yellow", lw=2)
         vline = Line((cx, cy - dy, cz), (cx, cy + dy, cz), c="yellow", lw=2)
 
-    elif plane == "y": # coronal -> lines in X,Z
+    elif plane == "y":  # coronal -> lines in X,Z
         dx = (x1 - x0) * size
         dz = (z1 - z0) * size
         hline = Line((cx - dx, cy, cz), (cx + dx, cy, cz), c="yellow", lw=2)
         vline = Line((cx, cy, cz - dz), (cx, cy, cz + dz), c="yellow", lw=2)
 
-    elif plane == "x": # sagittal -> lines in Y,Z
+    elif plane == "x":  # sagittal -> lines in Y,Z
         dy = (y1 - y0) * size
         dz = (z1 - z0) * size
         hline = Line((cx, cy - dy, cz), (cx, cy + dy, cz), c="yellow", lw=2)
@@ -139,6 +162,10 @@ def create_crosshair(target, slice_mesh, plane, size=0.02):
         raise ValueError("plane must be 'x', 'y' or 'z'")
 
     return [hline, vline]
+
+
+current_actors = [[], [], []]
+
 
 def main():
     ## Setup
@@ -178,25 +205,15 @@ def main():
     plotter = Plotter(
         title="CT Viewer", N=3, sharecam=False, bg="black", bg2="black", resetcam=False
     )
-    on_key_press = create_cb(plotter)
+
+    on_key_press, update_ploters = create_cb(
+        plotter, get_slice, create_crosshair, plane_to_name, ct
+    )
+
     plotter.interactor.RemoveObservers("KeyPressEvent")  # type: ignore
     plotter.add_callback("KeyPress", on_key_press)
 
-    slices = get_slice("x", target_in_voxel[0])
-    crosshair = create_crosshair(target_in_world, slices[0], "x") 
-    plotter.at(0).add(slices+crosshair)
-
-    slices = get_slice("y", target_in_voxel[1])
-    crosshair = create_crosshair(target_in_world, slices[0], "y") 
-    plotter.at(1).add(slices+crosshair)
-
-    slices = get_slice("z", target_in_voxel[2])
-    crosshair = create_crosshair(target_in_world, slices[0], "z") 
-    plotter.at(2).add(slices+crosshair)
-
-    plotter.at(0).camera = camera_params_slices[plane_to_name["x"]]
-    plotter.at(1).camera = camera_params_slices[plane_to_name["y"]]
-    plotter.at(2).camera = camera_params_slices[plane_to_name["z"]]
+    update_ploters(target_in_voxel, target_in_world, camera_params_slices)
 
     # print(
     #     f"camera pos - {plane_to_name['z']}",
@@ -204,7 +221,6 @@ def main():
     # )
     # print(f"target in world - {target_in_world}")
     # print(f"actual camera pose - {plotter.at(2).camera.GetPosition()}")
-
 
     plotter.show(interactive=True)
 
