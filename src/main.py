@@ -100,49 +100,7 @@ class CT_Viewer(Plotter):
         self.at(5).show(self.all_objects, camera=self.camera_params_3d)
 
         ## TEXT LABELS
-
-        offset = 0.33 / 2
-        self.coronal_text = Text2D(
-            "Coronal",
-            pos=(0.33 - offset, 0.5),  # type: ignore
-            s=1.4,
-            c="white",
-        )
-        self.sagittal_text = Text2D(
-            "Sagittal",
-            pos=(0.66 - offset, 0.5),  # type: ignore
-            s=1.4,
-            c="white",
-        )
-        self.axial_text = Text2D("Axial", pos=(0.99 - offset, 0.5), s=1.4, c="white")  # type: ignore
-        self.at(0).add(self.coronal_text)
-        self.at(0).add(self.sagittal_text)
-        self.at(0).add(self.axial_text)
-
-        self.station_text = "Region: " + QuadrantsInformation.from_id(self.active_quadrant).name
-        self.station_text_vedo = Text2D(
-            self.station_text,
-            pos="top-left",
-            s=1.1,
-            c="white",
-            # bg="yellow",
-            # alpha=0.25,
-        )
-        self.at(4).add(self.station_text_vedo)
-        # self.usage_text = text_generator(
-        #     QuadrantsInformation.from_id(self.active_quadrant).name, 0, 0
-        # )
-        self.usage_text = "Carcinosis: 0.0      Lymph Nodes: 0.0      primary tumor: 0.0   \n"
-
-        self.text_handle = Text2D(
-            self.usage_text,
-            font="Calco",
-            pos="top-left",
-            s=1.4,
-            # bg="yellow",
-            # alpha=0.25,
-        )
-        self.at(6).add(self.text_handle)
+        self.setup_text_labels()
 
     def set_layout(self):
         # ratios
@@ -171,6 +129,75 @@ class CT_Viewer(Plotter):
         self.renderers[6].SetViewport([0.0, 0.0, 1.0, 0.1])
         # Move out of the way the unused viewport
         self.renderers[7].SetViewport([1.0, 1.0, 2.0, 2.0])
+
+    def setup_text_labels(self):
+        ## Static labels.
+        offset = 0.33 / 2
+        coronal_text = Text2D(
+            "Coronal",
+            pos=(0.33 - offset, 0.5),  # type: ignore
+            s=1.4,
+            c="white",
+        )
+        sagittal_text = Text2D(
+            "Sagittal",
+            pos=(0.66 - offset, 0.5),  # type: ignore
+            s=1.4,
+            c="white",
+        )
+        axial_text = Text2D("Axial", pos=(0.99 - offset, 0.5), s=1.4, c="white")  # type: ignore
+        self.at(0).add(coronal_text)
+        self.at(0).add(sagittal_text)
+        self.at(0).add(axial_text)
+
+        ## Dynamic text labels
+        self.station_text = (
+            "Region: " + QuadrantsInformation.from_id(self.active_quadrant).name
+        )
+        self.station_text_vedo = Text2D(
+            self.station_text,
+            pos="top-left",
+            s=1.1,
+            c="white",
+            # bg="yellow",
+            # alpha=0.25,
+        )
+        self.at(4).add(self.station_text_vedo)
+
+        # Disease text
+        self.disease_text_vedo =  Text2D( 
+            "Disease findings in region", pos="top-left", s=1.1, c="white"
+        )
+        self.at(6).add(self.disease_text_vedo)
+
+        offset = 0.33 / 4
+        self.carcinosis_text_vedo = Text2D(
+            "Carcinosis: Yes",
+            pos=(0.0 + offset, 0.5),  # type: ignore
+            s=1.1,
+            c="white",
+        )
+        self.lymph_node_text_vedo = Text2D(
+            "Lymph Nodes: No",
+            pos=(0.33 + offset, 0.5),  # type: ignore
+            s=1.1,
+            c="white",
+        )
+        self.primary_text_vedo = Text2D(
+            "Primary Tumor: No",
+            pos=(0.66 + offset, 0.5),  # type: ignore
+            s=1.1,
+            c="white",
+        )
+        self.at(6).add(
+            self.carcinosis_text_vedo, self.lymph_node_text_vedo, self.primary_text_vedo
+        )
+
+        # self.usage_text = (
+        #     "Carcinosis: 0.0      Lymph Nodes: 0.0      primary tumor: 0.0   \n"
+        # )
+        # self.text_handle = Text2D(self.usage_text, font="Calco", pos="top-left", s=1.4)
+        # self.at(6).add(self.text_handle)
 
     def load_volumes(self, data_path):
         patient_id = 6
@@ -228,20 +255,25 @@ class CT_Viewer(Plotter):
         # print(f"vol origin {ct_volume.origin()}")
 
         lights_list = create_lights(vol_center, vol_bounds)
-        meshes_list, meshes_dict = load_meshes(
-            "/home/juan95/research/3dreconstruction/slicer_scripts/output"
-        )
 
-        meshes_disease_list, meshes_disease_dict = load_meshes(
-            "/home/juan95/research/3dreconstruction/slicer_scripts/output_disease"
-        )
+        ## 3D rendering window - Turn off 3D rendering to sped up development 
+        all_objects = []
+        # meshes_list = []
+        # meshes_dict = {}
+        # meshes_list, meshes_dict = load_meshes(
+        #     "/home/juan95/research/3dreconstruction/slicer_scripts/output"
+        # )
 
-        set_mesh_visual_properties(meshes_dict)
-        set_disease_visual_properties(meshes_disease_dict)
+        # meshes_disease_list, meshes_disease_dict = load_meshes(
+        #     "/home/juan95/research/3dreconstruction/slicer_scripts/output_disease"
+        # )
 
-        all_objects = meshes_list + lights_list
-        all_objects.append(meshes_disease_dict["lymph node"])
-        all_objects.append(meshes_disease_dict["carcinosis"])
+        # set_mesh_visual_properties(meshes_dict)
+        # set_disease_visual_properties(meshes_disease_dict)
+
+        # all_objects = meshes_list + lights_list
+        # all_objects.append(meshes_disease_dict["lymph node"])
+        # all_objects.append(meshes_disease_dict["carcinosis"])
 
         all_slices = [ct_slice, seg_slices_list]
 
@@ -279,8 +311,12 @@ class CT_Viewer(Plotter):
         carcinosis_segment = SegmentInfo("carcinosis", "#f0e964")
 
         all_segments = (lymph_segment, primary_segment, carcinosis_segment)
-        orthogonal_planes = (("coronal", "y"), ("sagittal", "x"), ("axial", "z"))
-        for plane_name, plane in orthogonal_planes:
+        orthogonal_planes = (
+            ("coronal", "y", 268),
+            ("sagittal", "x", 248),
+            ("axial", "z", 176),
+        )
+        for plane_name, plane, index in orthogonal_planes:
             slices_dict[plane_name] = []
             ct_slice = self.slice_intensity_volume(ct_volume, index=index, plane=plane)
             slices_dict[plane_name].append(ct_slice)
@@ -350,7 +386,7 @@ class CT_Viewer(Plotter):
             print("Help key pressed")
 
         elif key.lower() == "h":
-            print("position" ,self.at(4).camera.GetPosition())  # type: ignore
+            print("position", self.at(4).camera.GetPosition())  # type: ignore
             print("focal", self.at(4).camera.GetFocalPoint())  # type: ignore
             print("viewup", self.at(4).camera.GetViewUp())  # type: ignore
 
@@ -418,8 +454,8 @@ def create_camera_params(vol_center, vol_bounds):
     }
 
     camera_params_regions = {
-        "pos": [52.53618716564412, -1168.8585835176505, 1181.633188101601],
-        "focalPoint": [52.53618716564412, -0.48538350000004016, 1181.633188101601],
+        "pos": [-238.57000083409514, -798.5, 1178.9672953406998],
+        "focalPoint": [-238.57000083409514, -0.48538350000004016, 1178.9672953406998],
         "viewup": [0, 0, 1],
     }
 
