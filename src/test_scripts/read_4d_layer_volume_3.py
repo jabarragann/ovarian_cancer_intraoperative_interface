@@ -4,7 +4,7 @@ sys.path.append("./src")  # to import from parent dir
 
 from pathlib import Path
 import numpy as np
-from vedo import Volume, colors, show, Plotter, Line
+from vedo import Volume, colors, show, Plotter, Line, Mesh
 import nrrd
 
 from VedoSegmentLoader import VedoSegmentLoader
@@ -32,11 +32,9 @@ def create_camera_params(voxel_pos_in_world, dist_to_plane=600):
         "focalPoint": voxel_pos_in_world,
         "viewup": [0, 0, 1],
     }
-    ## Warning:
-    ## For some reason precisely aligning with the volume center will the camera go black.
     camera_params_slices["axial"] = {
         "pos": [
-            voxel_pos_in_world[0] + 0.001,
+            voxel_pos_in_world[0],
             voxel_pos_in_world[1],
             voxel_pos_in_world[2] - dist_to_plane,
         ],
@@ -130,7 +128,7 @@ def create_cb(plotter, get_slice, create_crosshair, plane_to_name, ct):
 
     return on_key_press, update_plotters
 
-def create_crosshair(target, slice_mesh, plane, size=0.02):
+def create_crosshair(target_in_world: list[float], slice_mesh: Mesh, plane:str, size:float=0.02):
     """
     target: (x,y,z) in world coords
     slice_mesh: vedo.Mesh of the slice (to get bounds)
@@ -138,7 +136,7 @@ def create_crosshair(target, slice_mesh, plane, size=0.02):
     """
     x0, x1, y0, y1, z0, z1 = slice_mesh.bounds()
 
-    cx, cy, cz = target
+    cx, cy, cz = target_in_world
 
     if plane == "z":  # axial -> lines in X,Y
         dx = (x1 - x0) * size
