@@ -1,7 +1,3 @@
-import sys
-
-sys.path.append("./src")  # to import from parent dir
-
 from pathlib import Path
 
 from vedo import Line, Mesh, Plotter, Volume

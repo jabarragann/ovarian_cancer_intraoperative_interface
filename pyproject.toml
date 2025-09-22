@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+## Not sure what this is for?.
+[tool.setuptools.packages.find]
+where = ["src"]
+include = ["ovarian_cancer_viewer"]  
+
+[project]
+name = "ovarian_cancer_viewer"
+version = "0.0.0"
+dependencies = [
+    "numpy>=2.2.0,<=2.2.8",
+    "vedo>=2025.5.3,<2025.5.5",
+    "rich",
+    "click",
+    "imageio",
+]
+requires-python = ">=3.10,<3.11" # Python 3.10 required
+authors = [
+    {name = "Juan Antonio Barragan", email = "jbarrag3@jh.edu"}
+]
+maintainers = [ 
+    {name = "Juan Antonio Barragan", email = "jbarrag3@jh.edu"}
+]
+description = """
+Phase recognition library for ovarian cancer surgery videos.
+"""
+
+readme = "README.md"
+keywords = ["Surgical phase recognition"]
