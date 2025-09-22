@@ -5,6 +5,7 @@ from functools import wraps
 from pathlib import Path
 
 import numpy as np
+import vedo.vtkclasses as vtki
 from vedo import Light, Line, Mesh, Plotter, Text2D, Volume, colors
 
 from DiseaseClusterManager import DiseaseClusterManager
@@ -53,21 +54,6 @@ def load_ct_scans_regions(
     return regions_dict
 
 
-# def text_generator(
-#     quadrant_name: str, carcinosis_count: int, lymph_node_count: int
-# ) -> str:
-#     usage_text = (
-#         f"Anatomical region: {quadrant_name}\n"
-#         f"Carcinosis count: {carcinosis_count}\n"
-#         f"Lymph node count: {lymph_node_count}\n"
-#         "                                                       \n"
-#         "\n"
-#         # "Anatomical region: Left Flank and Bowel Resection (BR) \n" # longest text
-#     )
-
-#     return usage_text
-
-
 class CT_Viewer(Plotter):
     @time_init
     def __init__(self, enable_3d_view: bool = True):
@@ -83,27 +69,25 @@ class CT_Viewer(Plotter):
         ## State variables
         self.target_voxel = [248, 268, 176]
         self.active_quadrant_id = 6
+
+        ## Data managers
+        self.disease_cluster_manager: DiseaseClusterManager
+        self.segmentation_manager: SegmentationManager
+
+        ## Vedo object containers
         self.quadrant_volumes_dict: dict[QuadrantsInformation, Volume] = {}
         self.quadrant_slices_dict: dict[QuadrantsInformation, Mesh] = {}
+        self.slices_region_viewer: list[Mesh] = []
+        self.meshes_3d_viewer: list[Mesh | vtki.vtkLight] = []
+        self.slices_ortogonal_viewers: dict[str, list[Mesh]] = {}
 
-        self.slices_viewport_objects: dict[str, list[Mesh]] = {}
-        self.all_slices, self.all_objects = self.setup_viewer()
+        self.setup_viewer()  # Initialize all containers
 
         self.add_callback("KeyPress", self.on_key_press)
 
         self.update_slices_viewports(self.target_voxel)
-        # self.at(1).show(
-        #     self.disease_slice["coronal"], camera=self.camera_params_slices["coronal"]
-        # )
-        # self.at(2).show(
-        #     self.disease_slice["sagittal"], camera=self.camera_params_slices["sagittal"]
-        # )
-        # self.at(3).show(
-        #     self.disease_slice["axial"], camera=self.camera_params_slices["axial"]
-        # )
-
-        self.at(4).show(self.all_slices, camera=self.camera_params_regions)
-        self.at(5).show(self.all_objects, camera=self.camera_params_3d)
+        self.at(4).show(self.slices_region_viewer, camera=self.camera_params_regions)
+        self.at(5).show(self.meshes_3d_viewer, camera=self.camera_params_3d)
 
         ## TEXT LABELS
         self.setup_text_labels()
@@ -174,6 +158,9 @@ class CT_Viewer(Plotter):
         return camera_params_slices
 
     def update_slices_viewports(self, target_in_voxel):
+        """
+        Set viewports.at(1), at(2), at(3) to show orthogonal slices
+        """
         viewport_to_view = {1: "coronal", 2: "sagittal", 3: "axial"}
         view_to_ax = {"coronal": "y", "sagittal": "x", "axial": "z"}
 
@@ -188,22 +175,22 @@ class CT_Viewer(Plotter):
 
         ## Remove old actors from each viewport
         for i in range(1, 4):
-            self.at(i).remove(*self.slices_viewport_objects[viewport_to_view[i]])
+            self.at(i).remove(*self.slices_ortogonal_viewers[viewport_to_view[i]])
 
         ## Create new slices
-        self.slices_viewport_objects = self.create_disease_slice(
+        self.slices_ortogonal_viewers = self.create_disease_slice(
             self.ct_volume, target_in_voxel
         )
 
         ## Add new objects to each viewport
         for i, view_name in viewport_to_view.items():
-            this_view_objs = self.slices_viewport_objects[viewport_to_view[i]]
+            this_view_objs = self.slices_ortogonal_viewers[viewport_to_view[i]]
             crosshair = create_crosshair(
                 target_in_world, this_view_objs[0], view_to_ax[view_name]
             )
-            self.slices_viewport_objects[viewport_to_view[i]].extend(crosshair)
+            self.slices_ortogonal_viewers[viewport_to_view[i]].extend(crosshair)
 
-            self.at(i).add(*self.slices_viewport_objects[viewport_to_view[i]])
+            self.at(i).add(*self.slices_ortogonal_viewers[viewport_to_view[i]])
             self.at(i).camera = self.slices_camera_params[view_name]
 
     def setup_text_labels(self):
@@ -327,7 +314,7 @@ class CT_Viewer(Plotter):
         data_path = data_path / f"Patient{patient_id:02d}/3d_slicer/"
         runtime_path = data_path / "interface_runtime"
 
-        ## Panel 1 assets - Load slices
+        ## Viewports row 1: orthogonal slices view
         index = 270
         self.ct_volume, self.segmentation_manager, self.quadrant_volumes_dict = (
             self.load_volumes(data_path, patient_id)
@@ -338,10 +325,10 @@ class CT_Viewer(Plotter):
             root_path=runtime_path,
         )
 
-        # Create slices
+        ### Create slices
         ct_slice = self.slice_intensity_volume(self.ct_volume, index=index)
         self.quadrant_slices_dict = self.create_quadrant_slices(index=index)
-        self.slices_viewport_objects = self.create_disease_slice(
+        self.slices_ortogonal_viewers = self.create_disease_slice(
             self.ct_volume, target_voxel=self.target_voxel
         )
 
@@ -349,27 +336,34 @@ class CT_Viewer(Plotter):
 
         self.quadrant_center_dict = self.load_region_centers(runtime_path)
 
-        # Set active quadrant
+        ### Set active quadrant
         quadrant = QuadrantsInformation.from_id(self.active_quadrant_id)
         self.quadrant_slices_dict[quadrant].alpha(0.4)
 
-        # ct_vis = (
-        #     ct_volume.clone().cmap("gray").alpha([[-1000, 0], [200, 0.2], [1000, 0.7]])
-        # )
-
-        ## Panel 2 assets
-        vol_bounds = self.ct_volume.bounds()  # xmin,xmax, ymin,ymax, zmin,zmax
+        ## Viewport row2 - region viewport and 3D rendering window
+        vol_bounds = self.ct_volume.bounds()  # xmin, xmax, ymin, ymax, zmin, zmax
         vol_center = self.ct_volume.center()
-        self.camera_params_3d, self.camera_params_slices, self.camera_params_regions = (
-            create_camera_params(vol_center, vol_bounds)
-        )
-        # print(f"vol_bounds: {vol_bounds}")
-        # print(f"vol_center: {vol_center}")
-        # print(f"vol origin {ct_volume.origin()}")
 
+        ### 3d viewer
+        self.camera_params_3d = camera_params_3d_viewer_init(vol_center, vol_bounds)
+        self.meshes_3d_viewer = self.setup_3d_viewer()
+
+        ### region viewer
+        self.camera_params_regions = camera_params_region_viewer_init(
+            vol_center, vol_bounds
+        )
+
+        seg_slices_list.append(ct_slice)
+        self.slices_region_viewer = seg_slices_list
+
+    def setup_3d_viewer(self) -> list[Mesh | vtki.vtkLight]:
+        ## TODO: all the functionality of the 3D viewer should be moved to its own class
+        ## Viewport row2 - region viewport and 3D rendering window
+        vol_bounds = self.ct_volume.bounds()  # xmin, xmax, ymin, ymax, zmin, zmax
+        vol_center = self.ct_volume.center()
         lights_list = create_lights(vol_center, vol_bounds)
 
-        ## 3D rendering window
+        ### Assets
         all_objects = []
         meshes_list = []
         meshes_dict = {}
@@ -389,9 +383,7 @@ class CT_Viewer(Plotter):
             all_objects.append(meshes_disease_dict["lymph node"])
             all_objects.append(meshes_disease_dict["carcinosis"])
 
-        all_slices = [ct_slice, seg_slices_list]
-
-        return all_slices, all_objects
+        return all_objects
 
     def slice_intensity_volume(self, ct_volume, index, plane="y", W=400, L=50):
         """
@@ -463,21 +455,6 @@ class CT_Viewer(Plotter):
             slices_dict[region] = seg_slice
 
         return slices_dict
-
-        # ## METHOD 1
-        # seg_slice = seg_volume.yslice(index)
-        # lut = colors.build_lut(
-        #     [
-        #         (0, "black"),  # background
-        #         (1, regions_color_palette[0]),  # segmentation
-        #     ],
-        # )
-
-        # # Apply LUT to your slice
-        # seg_slice.cmap(lut)
-        # seg_slice.alpha(0.4)
-
-        # return [seg_slice]
 
     def load_region_centers(
         self, runtime_path
@@ -584,9 +561,8 @@ class CT_Viewer(Plotter):
         self.at(5).renderer.ResetCameraClippingRange()  # type: ignore
 
 
-def create_camera_params(vol_center, vol_bounds):
+def camera_params_3d_viewer_init(vol_center, vol_bounds):
     # Bounding box --> [xmin,xmax, ymin,ymax, zmin,zmax].
-
     slice_focal_point = [vol_center[0], vol_center[1], vol_center[2]]
     camera_params_3d = {
         "pos": [vol_center[0], vol_bounds[2] - 550, vol_center[2]],
@@ -594,37 +570,18 @@ def create_camera_params(vol_center, vol_bounds):
         "viewup": [0, 0, 1],
     }
 
+    return camera_params_3d
+
+
+def camera_params_region_viewer_init(vol_center, vol_bounds):
+    # Bounding box --> [xmin,xmax, ymin,ymax, zmin,zmax].
     camera_params_regions = {
         "pos": [-238.57000083409514, -798.5, 1178.9672953406998],
         "focalPoint": [-238.57000083409514, -0.48538350000004016, 1178.9672953406998],
         "viewup": [0, 0, 1],
     }
 
-    # camera for slice panes
-    # (("coronal", "y"), ("sagittal", "x"), ("axial", "z"))
-    camera_params_slices: dict[str, dict[str, list[float]]] = {}
-    camera_params_slices["coronal"] = {
-        "pos": [vol_center[0], vol_bounds[2] - 550, vol_center[2]],
-        "focalPoint": slice_focal_point,
-        "viewup": [0, 0, 1],
-    }
-    camera_params_slices["sagittal"] = {
-        "pos": [vol_bounds[1] + 550, vol_center[1], vol_center[2]],
-        "focalPoint": slice_focal_point,
-        "viewup": [0, 0, 1],
-    }
-    ## Warning:
-    ## For some reason precisely aligning with the volume center will the camera go black.
-    camera_params_slices["axial"] = {
-        "pos": [vol_center[0] + 0.001, vol_center[1], vol_bounds[4] - 500],
-        "focalPoint": slice_focal_point,
-        "viewup": [0, -1, 0],
-    }
-    # print("axial pose:", camera_params_slices["axial"]["pos"])
-    # print("coronal pose:", camera_params_slices["coronal"]["pos"])
-    # print("sagittal pose:", camera_params_slices["sagittal"]["pos"])
-
-    return camera_params_3d, camera_params_slices, camera_params_regions
+    return camera_params_regions
 
 
 def parse_mtl(mtl_file: Path):
@@ -642,9 +599,6 @@ def parse_mtl(mtl_file: Path):
 
 
 def load_mesh(obj_path: Path, load_mtl: bool) -> Mesh:
-    # path = Path("/home/juan95/research/3dreconstruction/slicer_scripts/output")
-    # mesh_path = path / "liver.obj"
-
     mesh = Mesh(obj_path)
 
     # Load material
