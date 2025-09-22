@@ -1,13 +1,9 @@
-from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
 
-from collections.abc import MutableSequence
 import pickle
-from typing import Union
 import numpy as np
 import seaborn as sns
-from vedo import Mesh, Volume
 
 regions_color_palette = sns.color_palette("Set2", 7).as_hex()
 
@@ -92,15 +88,15 @@ class QuadrantsInformation(Enum):
         return self._color
 
 
-def load_centers():
-    path = Path("run_time/regions_center.pkl")
-    if not Path(path).exists():
-        raise FileNotFoundError(f"Center file not found: {path}")
+def load_centers(path: Path):
+    complete_path = path / "regions_center.pkl"
+    if not Path(complete_path).exists():
+        raise FileNotFoundError(f"Center file not found: {complete_path}")
 
-    return pickle.load(open(path, "rb"))
+    return pickle.load(open(complete_path, "rb"))
 
-def save_centers(centers: dict[QuadrantsInformation, np.ndarray]):
-    path = Path("run_time/regions_center.pkl")
+def save_centers(centers: dict[QuadrantsInformation, np.ndarray], runtime_path: Path):
+    path = runtime_path / "regions_center.pkl"
     path.parent.mkdir(parents=True, exist_ok=True)
 
     with open(path, "wb") as f:

@@ -7,7 +7,7 @@ import numpy as np
 from vedo import Volume, colors, show, Plotter
 import nrrd
 
-from VedoSegmentLoader import VedoSegmentLoader
+from VedoSegmentLoader import SegmentationLoaderManager
 
 
 def create_camera_params(vol_center, vol_bounds):
@@ -69,7 +69,7 @@ def main():
     ct_path = complete_path / f"raw_scans_patient_{patient_id:02d}.nrrd"
     seg_path = complete_path / "radiologist_annotations.seg.nrrd"
 
-    vedo_segment_loader = VedoSegmentLoader(seg_path)
+    vedo_segment_loader = SegmentationLoaderManager(seg_path)
 
     ct = Volume(ct_path)
     # Look anterior-posterior direction

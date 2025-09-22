@@ -11,7 +11,14 @@ class SegmentationNameNotFoundError(Exception):
     pass
 
 
-class VedoSegmentLoader:
+class SegmentationLoaderManager:
+    """
+    Class to manage the loading and processing of segmentation data.
+    - Load to seg.nrrd files exported from 3D Slicer into Vedo Volumes.
+    - Manages multi-layer nrrd files (segmentations where segments overlap).
+
+    """
+
     def __init__(self, segmentation_path: Path):
         self.segmentation_path = segmentation_path
         if not segmentation_path.exists():
@@ -22,7 +29,8 @@ class VedoSegmentLoader:
         self.spacing, self.origin = self.parse_header()
         self.dimension = self.header["dimension"]
 
-        self.volume_dict: dict[str, Volume] = {}
+        # Cache for loaded volumes - (LabelValue, Volume)
+        self.cache_volume_dict: dict[str, tuple[int, Volume]] = {}
 
     def parse_header(self):
         # voxel spacing (x,y,z) in mm
@@ -39,13 +47,20 @@ class VedoSegmentLoader:
         return spacing, origin
 
     def get_volume_from_segment_name(self, label_name: str) -> Volume:
-        if label_name not in self.volume_dict:
+        if label_name not in self.cache_volume_dict:
+            label_value = self.get_segment_label_value_from_name(label_name)
             raw_data = self.get_data_from_segment_name(label_name)
-            self.volume_dict[label_name] = Volume(
-                raw_data, spacing=self.spacing, origin=self.origin
-            )
+            v = Volume(raw_data, spacing=self.spacing, origin=self.origin)
+            self.cache_volume_dict[label_name] = (label_value, v)
 
-        return self.volume_dict[label_name]
+        return self.cache_volume_dict[label_name][1]
+
+    def load_volumes_to_cache(self, segment_names: list[str]) -> None:
+        for name in segment_names:
+            self.get_volume_from_segment_name(name)
+
+    def get_cache_volume_dict(self) -> dict[str, tuple[int, Volume]]:
+        return self.cache_volume_dict
 
     def get_data_from_segment_name(self, label_name: str):
         """
@@ -65,7 +80,7 @@ class VedoSegmentLoader:
         segment_id = self.find_segment_index(label_name)
         segment_layer = self.header[f"Segment{segment_id}_Layer"]
         return int(segment_layer)
-    
+
     def get_segment_label_value_from_name(self, label_name: str) -> int:
         segment_index = self.find_segment_index(label_name)
         return self.get_segment_label_value(segment_index)

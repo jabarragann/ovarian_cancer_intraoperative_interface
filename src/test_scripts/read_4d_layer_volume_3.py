@@ -3,11 +3,9 @@ import sys
 sys.path.append("./src")  # to import from parent dir
 
 from pathlib import Path
-import numpy as np
-from vedo import Volume, colors, show, Plotter, Line, Mesh
-import nrrd
+from vedo import Volume,  Plotter, Line, Mesh
 
-from VedoSegmentLoader import VedoSegmentLoader
+from VedoSegmentLoader import SegmentationLoaderManager
 
 
 def create_camera_params(voxel_pos_in_world, dist_to_plane=600):
@@ -78,8 +76,13 @@ def slice_factory(ct, vedo_segment_loader):
 def create_cb(plotter, get_slice, create_crosshair, plane_to_name, ct):
     u_index = 0
     # target_in_voxel = [(283, 281, 175), (248, 268, 176), (277,242, 129)]
-    target_in_voxel = [(247 , 268, 172), (280, 282, 174), (194, 286,  96), (292, 274, 101)]
-    target_in_voxel.append((281, 288, 195)) #Left upper quadrant
+    target_in_voxel = [
+        (247, 268, 172),
+        (280, 282, 174),
+        (194, 286, 96),
+        (292, 274, 101),
+    ]
+    target_in_voxel.append((281, 288, 195))  # Left upper quadrant
     target_in_world = []
 
     for voxel in target_in_voxel:
@@ -101,14 +104,13 @@ def create_cb(plotter, get_slice, create_crosshair, plane_to_name, ct):
             print(f"actual camera pose - {plotter.at(2).camera.GetPosition()}")
 
         elif key == "u":
-            u_index = (u_index + 1) % len(target_in_voxel) 
+            u_index = (u_index + 1) % len(target_in_voxel)
             camera_params_slices = create_camera_params(target_in_world[u_index])
             update_plotters(
                 target_in_voxel[u_index], target_in_world[u_index], camera_params_slices
             )
-        
-        plotter.render()
 
+        plotter.render()
 
     def update_plotters(target_voxel, target_world, camera_params_slices):
         # print(f"target_voxel: {target_voxel}")
@@ -130,7 +132,10 @@ def create_cb(plotter, get_slice, create_crosshair, plane_to_name, ct):
 
     return on_key_press, update_plotters
 
-def create_crosshair(target_in_world: list[float], slice_mesh: Mesh, plane:str, size:float=0.02):
+
+def create_crosshair(
+    target_in_world: list[float], slice_mesh: Mesh, plane: str, size: float = 0.02
+):
     """
     target: (x,y,z) in world coords
     slice_mesh: vedo.Mesh of the slice (to get bounds)
@@ -176,7 +181,7 @@ def main():
     ct_path = complete_path / f"raw_scans_patient_{patient_id:02d}.nrrd"
     seg_path = complete_path / "radiologist_annotations.seg.nrrd"
 
-    vedo_segment_loader = VedoSegmentLoader(seg_path)
+    vedo_segment_loader = SegmentationLoaderManager(seg_path)
 
     ct = Volume(ct_path)
 

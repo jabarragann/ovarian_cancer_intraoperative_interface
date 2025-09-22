@@ -1,5 +1,5 @@
 import sys
-from typing import Any, Union
+from typing import Any 
 
 sys.path.append("./src")  # to import from parent dir
 
@@ -10,7 +10,7 @@ from vedo import Volume
 from scipy import ndimage
 
 
-from VedoSegmentLoader import VedoSegmentLoader
+from VedoSegmentLoader import SegmentationLoaderManager
 
 
 def load_ct_scans_regions(
@@ -76,7 +76,7 @@ def main():
     complete_path = data_path / f"Patient{patient_id:02d}/3d_slicer/"
     seg_path = complete_path / "radiologist_annotations.seg.nrrd"
 
-    vedo_segment_loader = VedoSegmentLoader(seg_path)
+    vedo_segment_loader = SegmentationLoaderManager(seg_path)
 
     regions_dict = load_ct_scans_regions(complete_path)
 
@@ -95,7 +95,7 @@ def main():
     compute_target(
         label_values["lymph node"][1].tonumpy(),
         central_region_volume.tonumpy(),
-        label_values["lymph node"][0] 
+        label_values["lymph node"][0],
     )
 
     print("EXIT!")
@@ -105,7 +105,7 @@ def main():
     for region, region_vol in regions_dict.items():
         print(f"Calculating clusters in region {region.name}...")
         dict_clusters[region] = {}
-        for disease in ["primary", "lymph node", "carcinosis"]: 
+        for disease in ["primary", "lymph node", "carcinosis"]:
             clusters = compute_target(
                 label_values[disease][1].tonumpy(),
                 region_vol.tonumpy(),
