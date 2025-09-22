@@ -3,7 +3,7 @@ from collections.abc import MutableSequence
 from functools import wraps
 import time
 import numpy as np
-from vedo import Volume, colors, Mesh, Light, Text2D,Line
+from vedo import Volume, colors, Mesh, Light, Text2D, Line
 from pathlib import Path
 from vedo import Plotter
 from QuadrantInformation import (
@@ -68,7 +68,9 @@ def load_ct_scans_regions(
 
 class CT_Viewer(Plotter):
     @time_init
-    def __init__(self):
+    def __init__(self, enable_3d_view: bool = False):
+        self.enable_3d_view = enable_3d_view
+
         kwargs = {"sharecam": False, "size": (1200, 800)}
         kwargs.update({"bg": "black", "bg2": "black"})
 
@@ -77,12 +79,12 @@ class CT_Viewer(Plotter):
         self.set_layout()
 
         ## State variables
-        self.target_voxel = [248,268,176]
+        self.target_voxel = [248, 268, 176]
         self.active_quadrant = 6
         self.quadrant_volumes_dict: dict[QuadrantsInformation, Volume] = {}
         self.quadrant_slices_dict: dict[QuadrantsInformation, Mesh] = {}
 
-        self.slices_viewport_objects: dict[str, list[Mesh]] = {} 
+        self.slices_viewport_objects: dict[str, list[Mesh]] = {}
         self.all_slices, self.all_objects = self.setup_viewer()
 
         self.add_callback("KeyPress", self.on_key_press)
@@ -166,7 +168,7 @@ class CT_Viewer(Plotter):
             "viewup": [0, -1, 0],
         }
 
-        return camera_params_slices 
+        return camera_params_slices
 
     def update_slices_viewports(self, target_in_voxel):
         viewport_to_view = {1: "coronal", 2: "sagittal", 3: "axial"}
@@ -178,20 +180,24 @@ class CT_Viewer(Plotter):
             target_in_voxel,
             target_in_world,  # type: ignore
         )
-        ## calculate camera params 
+        ## calculate camera params
         self.slices_camera_params = self.create_slices_cameras(target_in_world)
 
         ## Remove old actors from each viewport
-        for i in range(1,4):
+        for i in range(1, 4):
             self.at(i).remove(*self.slices_viewport_objects[viewport_to_view[i]])
 
         ## Create new slices
-        self.slices_viewport_objects = self.create_disease_slice(self.ct_volume, target_in_voxel)
+        self.slices_viewport_objects = self.create_disease_slice(
+            self.ct_volume, target_in_voxel
+        )
 
         ## Add new objects to each viewport
         for i, view_name in viewport_to_view.items():
             this_view_objs = self.slices_viewport_objects[viewport_to_view[i]]
-            crosshair = create_crosshair(target_in_world, this_view_objs[0], view_to_ax[view_name])
+            crosshair = create_crosshair(
+                target_in_world, this_view_objs[0], view_to_ax[view_name]
+            )
             self.slices_viewport_objects[viewport_to_view[i]].extend(crosshair)
 
             self.at(i).add(*self.slices_viewport_objects[viewport_to_view[i]])
@@ -232,7 +238,7 @@ class CT_Viewer(Plotter):
         self.at(4).add(self.station_text_vedo)
 
         # Disease text
-        self.disease_text_vedo =  Text2D( 
+        self.disease_text_vedo = Text2D(
             "Disease findings in region", pos="top-left", s=1.1, c="white"
         )
         self.at(6).add(self.disease_text_vedo)
@@ -297,7 +303,9 @@ class CT_Viewer(Plotter):
         # Create slices
         ct_slice = self.slice_intensity_volume(self.ct_volume, index=index)
         self.quadrant_slices_dict = self.create_quadrant_slices(index=index)
-        self.slices_viewport_objects = self.create_disease_slice(self.ct_volume, target_voxel=self.target_voxel)
+        self.slices_viewport_objects = self.create_disease_slice(
+            self.ct_volume, target_voxel=self.target_voxel
+        )
 
         seg_slices_list = [s for s in self.quadrant_slices_dict.values()]
 
@@ -323,24 +331,25 @@ class CT_Viewer(Plotter):
 
         lights_list = create_lights(vol_center, vol_bounds)
 
-        ## 3D rendering window - Turn off 3D rendering to sped up development 
+        ## 3D rendering window
         all_objects = []
         meshes_list = []
         meshes_dict = {}
-        meshes_list, meshes_dict = load_meshes(
-            "/home/juan95/research/3dreconstruction/slicer_scripts/output"
-        )
+        if self.enable_3d_view:  ## Turn off 3D rendering to sped up development
+            meshes_list, meshes_dict = load_meshes(
+                "/home/juan95/research/3dreconstruction/slicer_scripts/output"
+            )
 
-        meshes_disease_list, meshes_disease_dict = load_meshes(
-            "/home/juan95/research/3dreconstruction/slicer_scripts/output_disease"
-        )
+            meshes_disease_list, meshes_disease_dict = load_meshes(
+                "/home/juan95/research/3dreconstruction/slicer_scripts/output_disease"
+            )
 
-        set_mesh_visual_properties(meshes_dict)
-        set_disease_visual_properties(meshes_disease_dict)
+            set_mesh_visual_properties(meshes_dict)
+            set_disease_visual_properties(meshes_disease_dict)
 
-        all_objects = meshes_list + lights_list
-        all_objects.append(meshes_disease_dict["lymph node"])
-        all_objects.append(meshes_disease_dict["carcinosis"])
+            all_objects = meshes_list + lights_list
+            all_objects.append(meshes_disease_dict["lymph node"])
+            all_objects.append(meshes_disease_dict["carcinosis"])
 
         all_slices = [ct_slice, seg_slices_list]
 
@@ -484,7 +493,6 @@ class CT_Viewer(Plotter):
                 # print(f"New target voxel {self.target_voxel}")
                 self.update_slices_viewports(self.target_voxel)
 
-
             self.render()
 
     def position_camera_in_region(self, new_quadrant: QuadrantsInformation):
@@ -620,7 +628,10 @@ def load_meshes(
 
     return meshes_list, meshes_dict
 
-def create_crosshair(target_in_world: list[float], slice_mesh: Mesh, plane:str, size:float=0.02):
+
+def create_crosshair(
+    target_in_world: list[float], slice_mesh: Mesh, plane: str, size: float = 0.02
+):
     """
     target: (x,y,z) in world coords
     slice_mesh: vedo.Mesh of the slice (to get bounds)
@@ -652,6 +663,7 @@ def create_crosshair(target_in_world: list[float], slice_mesh: Mesh, plane:str, 
         raise ValueError("plane must be 'x', 'y' or 'z'")
 
     return [hline, vline]
+
 
 def create_lights(vol_center, vol_bounds):
     light1_pos = [vol_center[0], vol_bounds[2] - 100, vol_center[2]]
