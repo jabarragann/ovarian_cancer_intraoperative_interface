@@ -13,7 +13,7 @@ from QuadrantInformation import (
     load_centers,
     save_centers,
 )
-from VedoSegmentLoader import SegmentationLoaderManager
+from SegmentationManager import SegmentationManager
 
 
 def time_init(func):
@@ -247,9 +247,15 @@ class CT_Viewer(Plotter):
         offset = 0.33 / 4
 
         active_quadrant = QuadrantsInformation.from_id(self.active_quadrant_id)
-        carcinosis_present = self.disease_cluster_manager.disease_prescence(active_quadrant, "carcinosis")
-        lymph_node_present = self.disease_cluster_manager.disease_prescence(active_quadrant, "lymph node")
-        primary_present = self.disease_cluster_manager.disease_prescence(active_quadrant, "primary")
+        carcinosis_present = self.disease_cluster_manager.disease_prescence(
+            active_quadrant, "carcinosis"
+        )
+        lymph_node_present = self.disease_cluster_manager.disease_prescence(
+            active_quadrant, "lymph node"
+        )
+        primary_present = self.disease_cluster_manager.disease_prescence(
+            active_quadrant, "primary"
+        )
 
         self.carcinosis_text_vedo = Text2D(
             "Carcinosis: Yes" if carcinosis_present else "Carcinosis: No",
@@ -277,9 +283,15 @@ class CT_Viewer(Plotter):
         self.station_text = "Region: " + active_quadrant.name
         self.station_text_vedo.text(self.station_text)
 
-        carcinosis_present = self.disease_cluster_manager.disease_prescence(active_quadrant, "carcinosis")
-        lymph_node_present = self.disease_cluster_manager.disease_prescence(active_quadrant, "lymph node")
-        primary_present = self.disease_cluster_manager.disease_prescence(active_quadrant, "primary")
+        carcinosis_present = self.disease_cluster_manager.disease_prescence(
+            active_quadrant, "carcinosis"
+        )
+        lymph_node_present = self.disease_cluster_manager.disease_prescence(
+            active_quadrant, "lymph node"
+        )
+        primary_present = self.disease_cluster_manager.disease_prescence(
+            active_quadrant, "primary"
+        )
 
         self.carcinosis_text_vedo.text(
             "Carcinosis: Yes" if carcinosis_present else "Carcinosis: No"
@@ -292,15 +304,16 @@ class CT_Viewer(Plotter):
         )
 
     def load_volumes(self, data_path, patient_id):
-
         ct_path = data_path / f"raw_scans_patient_{patient_id:02d}.nrrd"
         ct = Volume(ct_path)
 
         # seg = Volume(complete_path / "regions" / "pelvic_region_quadrant.seg.nrrd")
-        segmentation_manager = SegmentationLoaderManager(
+        segmentation_manager = SegmentationManager(
             data_path / "radiologist_annotations.seg.nrrd"
         )
-        segmentation_manager.load_volumes_to_cache(["primary", "lymph node", "carcinosis"])
+        segmentation_manager.load_volumes_to_cache(
+            ["primary", "lymph node", "carcinosis"]
+        )
 
         region_seg_dict = load_ct_scans_regions(data_path)
 
@@ -464,7 +477,9 @@ class CT_Viewer(Plotter):
 
         # return [seg_slice]
 
-    def load_region_centers(self, runtime_path) -> dict[QuadrantsInformation, np.ndarray]:
+    def load_region_centers(
+        self, runtime_path
+    ) -> dict[QuadrantsInformation, np.ndarray]:
         centers_dict = {}
 
         try:
@@ -518,21 +533,21 @@ class CT_Viewer(Plotter):
             self.render()
 
     def calculate_new_target(self, new_quadrant: QuadrantsInformation) -> list[int]:
-        
-        disease_to_highlight = ["lymph node","primary", "carcinosis"]
+        disease_to_highlight = ["lymph node", "primary", "carcinosis"]
         for disease in disease_to_highlight:
-            vol_center = self.disease_cluster_manager.get_centroid_of_largest_cluster(new_quadrant, disease)
+            vol_center = self.disease_cluster_manager.get_centroid_of_largest_cluster(
+                new_quadrant, disease
+            )
             if vol_center is not None:
                 return vol_center.tolist()
 
         # If no annotations are found use region center
         print(f"no disease detected in {new_quadrant.name}, using region center")
         vol_center = self.quadrant_center_dict[new_quadrant]
-        vol_center[1] = 264 # TODO: fix hardcoded value
+        vol_center[1] = 264  # TODO: fix hardcoded value
         target_voxel = vol_center.tolist()
 
         return target_voxel
-
 
     def position_3d_camera_in_region(self, new_quadrant: QuadrantsInformation):
         """

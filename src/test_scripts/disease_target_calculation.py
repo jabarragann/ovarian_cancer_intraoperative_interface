@@ -1,5 +1,5 @@
 import sys
-from typing import Any 
+from typing import Any
 
 sys.path.append("./src")  # to import from parent dir
 
@@ -10,7 +10,7 @@ from vedo import Volume
 from scipy import ndimage
 
 
-from VedoSegmentLoader import SegmentationLoaderManager
+from SegmentationManager import SegmentationManager
 
 
 def load_ct_scans_regions(
@@ -76,7 +76,7 @@ def main():
     complete_path = data_path / f"Patient{patient_id:02d}/3d_slicer/"
     seg_path = complete_path / "radiologist_annotations.seg.nrrd"
 
-    vedo_segment_loader = SegmentationLoaderManager(seg_path)
+    vedo_segment_loader = SegmentationManager(seg_path)
 
     regions_dict = load_ct_scans_regions(complete_path)
 

@@ -11,7 +11,7 @@ class SegmentationNameNotFoundError(Exception):
     pass
 
 
-class SegmentationLoaderManager:
+class SegmentationManager:
     """
     Class to manage the loading and processing of segmentation data.
     - Load to seg.nrrd files exported from 3D Slicer into Vedo Volumes.

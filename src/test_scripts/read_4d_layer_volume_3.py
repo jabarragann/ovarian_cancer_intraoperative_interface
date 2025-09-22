@@ -3,9 +3,9 @@ import sys
 sys.path.append("./src")  # to import from parent dir
 
 from pathlib import Path
-from vedo import Volume,  Plotter, Line, Mesh
+from vedo import Volume, Plotter, Line, Mesh
 
-from VedoSegmentLoader import SegmentationLoaderManager
+from SegmentationManager import SegmentationManager
 
 
 def create_camera_params(voxel_pos_in_world, dist_to_plane=600):
@@ -181,7 +181,7 @@ def main():
     ct_path = complete_path / f"raw_scans_patient_{patient_id:02d}.nrrd"
     seg_path = complete_path / "radiologist_annotations.seg.nrrd"
 
-    vedo_segment_loader = SegmentationLoaderManager(seg_path)
+    vedo_segment_loader = SegmentationManager(seg_path)
 
     ct = Volume(ct_path)
 
