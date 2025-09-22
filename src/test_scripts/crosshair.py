@@ -1,5 +1,6 @@
 from pathlib import Path
-from vedo import Volume, Line, show
+
+from vedo import Line, Volume, show
 
 data_path = Path("/home/juan95/JuanData/OvarianCancerDataset/CT_scans")
 
@@ -24,11 +25,7 @@ x_half = (xmax - xmin) * 0.1
 y_half = (ymax - ymin) * 0.1
 
 # Short cross-hair lines
-hline = Line((c[0] - x_half, c[1], c[2]),
-             (c[0] + x_half, c[1], c[2]),
-             c="yellow", lw=2)
-vline = Line((c[0], c[1] - y_half, c[2]),
-             (c[0], c[1] + y_half, c[2]),
-             c="yellow", lw=2)
+hline = Line((c[0] - x_half, c[1], c[2]), (c[0] + x_half, c[1], c[2]), c="yellow", lw=2)
+vline = Line((c[0], c[1] - y_half, c[2]), (c[0], c[1] + y_half, c[2]), c="yellow", lw=2)
 
 show(slice_mesh, hline, vline, bg="black")

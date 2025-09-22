@@ -1,8 +1,10 @@
 import os
+
 import slicer
 import vtk
 
-def get_visible_segments(node_name: str)->list[str]:
+
+def get_visible_segments(node_name: str) -> list[str]:
     all_visible_segments = []
 
     segNode = slicer.util.getNode(node_name)  # or getNodesByClass()[0]
@@ -23,6 +25,7 @@ def get_visible_segments(node_name: str)->list[str]:
 
     return all_visible_segments
 
+
 def display_visible_segments():
     node_name = "total_segmentation"
     visible_segments = get_visible_segments(node_name)
@@ -30,6 +33,7 @@ def display_visible_segments():
     print("Visible segments:")
     for segment in visible_segments:
         print(f" - {segment}")
+
 
 def export_to_mesh():
     node_name = "radiologist_annotations"
@@ -45,7 +49,13 @@ def export_to_mesh():
     output_path = "/home/juan95/research/3dreconstruction/slicer_scripts/output/"
 
     # Create a parent model folder
-    modelFolder = slicer.mrmlScene.AddNewNodeByClass("vtkMRMLModelHierarchyNode", "ExportedSegmentsFolder")
+    # modelFolder = slicer.mrmlScene.AddNewNodeByClass(
+    #     "vtkMRMLModelHierarchyNode", "ExportedSegmentsFolder"
+    # )
+    slicer.mrmlScene.AddNewNodeByClass(
+        "vtkMRMLModelHierarchyNode", "ExportedSegmentsFolder"
+    )
+
     segmentationNodes = slicer.util.getNodesByClass("vtkMRMLSegmentationNode")
 
     for segNode in segmentationNodes:
@@ -69,14 +79,17 @@ def export_to_mesh():
                 # Export this segment into the model node (requires vtkStringArray)
                 segmentIDArray = vtk.vtkStringArray()
                 segmentIDArray.InsertNextValue(segmentID)
-                slicer.modules.segmentations.logic().ExportSegmentsToModels(segNode, segmentIDArray, True)
+                slicer.modules.segmentations.logic().ExportSegmentsToModels(
+                    segNode, segmentIDArray, True
+                )
 
                 # Find the newly created model node (by name)
                 modelNode = slicer.util.getNode(f"{segmentName}")
                 # Save model as OBJ
-                slicer.util.saveNode(modelNode, output_path+f"{segmentName}.obj")
+                slicer.util.saveNode(modelNode, output_path + f"{segmentName}.obj")
                 # Erase model
                 slicer.mrmlScene.RemoveNode(modelNode)
+
 
 if __name__ == "__main__":
     ### uncomment the needed method before uploading to 3d Slicer with ctrl + g

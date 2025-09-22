@@ -1,11 +1,12 @@
+import time
 from collections import namedtuple
 from collections.abc import MutableSequence
 from functools import wraps
-import time
-import numpy as np
-from vedo import Volume, colors, Mesh, Light, Text2D, Line
 from pathlib import Path
-from vedo import Plotter
+
+import numpy as np
+from vedo import Light, Line, Mesh, Plotter, Text2D, Volume, colors
+
 from DiseaseClusterManager import DiseaseClusterManager
 from QuadrantInformation import (
     QuadrantsInformation,
@@ -115,19 +116,19 @@ class CT_Viewer(Plotter):
         col_fracs_sum = [sum(col_fracs[:i]) for i in range(len(col_fracs))]
 
         ## Define viewports helper to compute viewport (xmin, ymin, xmax, ymax)
-        b = 0.005 #small border between viewports
+        b = 0.005  # small border between viewports
         top_border = 0.90
 
         # row 1
         self.renderers[0].SetViewport([0.0, top_border, 1.0, 1.0])
         # row 2
         self.renderers[1].SetViewport(
-            [col_fracs_sum[0]+b, 0.5, col_fracs_sum[1]-b, top_border]
+            [col_fracs_sum[0] + b, 0.5, col_fracs_sum[1] - b, top_border]
         )
         self.renderers[2].SetViewport(
-            [col_fracs_sum[1]+b, 0.5, col_fracs_sum[2]-b, top_border]
+            [col_fracs_sum[1] + b, 0.5, col_fracs_sum[2] - b, top_border]
         )
-        self.renderers[3].SetViewport([col_fracs_sum[2]+b, 0.5, 1.0-b, top_border])
+        self.renderers[3].SetViewport([col_fracs_sum[2] + b, 0.5, 1.0 - b, top_border])
         # row 3
         self.renderers[4].SetViewport([0.0, 0.1, 0.5, 0.5])
         self.renderers[5].SetViewport([0.5, 0.1, 1.0, 0.5])
@@ -372,7 +373,7 @@ class CT_Viewer(Plotter):
         all_objects = []
         meshes_list = []
         meshes_dict = {}
-        if self.enable_3d_view:  ## Turn off 3D rendering to sped up development
+        if self.enable_3d_view:  # Turn off 3D rendering to sped up development
             meshes_list, meshes_dict = load_meshes(
                 "/home/juan95/research/3dreconstruction/slicer_scripts/output"
             )
@@ -630,7 +631,7 @@ def parse_mtl(mtl_file: Path):
     """Parse .mtl file and return a dict of {material_name: (r,g,b)} diffuse colors."""
     materials = {}
     current = None
-    with open(mtl_file, "r") as f:
+    with open(mtl_file) as f:
         for line in f:
             if line.startswith("newmtl"):
                 current = line.split()[1]

@@ -1,7 +1,9 @@
 from pathlib import Path
+
+import nrrd
 import numpy as np
 from vedo import Volume, colors, show
-import nrrd
+
 
 def create_camera_params(vol_center, vol_bounds):
     slice_focal_point = [vol_center[0], vol_center[1], vol_center[2]]
@@ -11,6 +13,7 @@ def create_camera_params(vol_center, vol_bounds):
         "viewup": [0, 0, 1],
     }
     return camera_params
+
 
 data_path = Path("/home/juan95/JuanData/OvarianCancerDataset/CT_scans")
 
@@ -36,11 +39,13 @@ camera_params = create_camera_params(ct.center(), ct.bounds())
 
 data, hdr = nrrd.read(str(complete_path / "radiologist_annotations.seg.nrrd"))
 # voxel spacing (x,y,z) in mm
-spacing = np.array([
-    float(hdr["space directions"][1][0]),  # X
-    float(hdr["space directions"][2][1]),  # Y
-    float(hdr["space directions"][3][2])   # Z
-])
+spacing = np.array(
+    [
+        float(hdr["space directions"][1][0]),  # X
+        float(hdr["space directions"][2][1]),  # Y
+        float(hdr["space directions"][3][2]),  # Z
+    ]
+)
 
 # world origin (x,y,z)
 print(hdr["space origin"])
@@ -49,13 +54,13 @@ origin = hdr["space origin"]
 print("spacing:", spacing)
 print("origin :", origin)
 
-layer0 = data[0]   # shape (512, 512, 293)
-layer1 = data[1]   # shape (512, 512, 293)
+layer0 = data[0]  # shape (512, 512, 293)
+layer1 = data[1]  # shape (512, 512, 293)
 seg_layer0_vol = Volume(layer0, spacing=spacing, origin=origin)
 seg_layer1_vol = Volume(layer1, spacing=spacing, origin=origin)
 
 print(f"shape of seg_layer1_vol: {seg_layer1_vol.tonumpy().shape}")
-print(f"shape of ct_vol_np:", ct_vol_np.shape)
+print(f"shape of ct_vol_np:  {ct_vol_np.shape}")
 
 
 ## Slices and visualization
@@ -69,8 +74,8 @@ slice_index = 282  # choose the slice along z-axis
 # CT slice
 ct_slice = ct.yslice(slice_index)
 
-W=400
-L=50
+W = 400
+L = 50
 ct_slice = ct.yslice(slice_index)
 vmin = L - W / 2
 vmax = L + W / 2
@@ -90,8 +95,6 @@ lut = colors.build_lut(
 )
 seg_slice.cmap(lut)
 seg_slice.alpha(0.3)
-
-
 
 
 # show slice

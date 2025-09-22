@@ -1,4 +1,4 @@
-from vedo import Plotter, Sphere, Box
+from vedo import Box, Plotter, Sphere
 
 # ratios
 col_ratios = [1, 4, 4]

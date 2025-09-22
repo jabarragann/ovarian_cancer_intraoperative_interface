@@ -1,16 +1,14 @@
-from dataclasses import dataclass, field
-from functools import wraps
 import pickle
 import time
+from dataclasses import dataclass, field
+from functools import wraps
+from pathlib import Path
 
+import numpy as np
+from scipy import ndimage
+from vedo import Volume
 
 from QuadrantInformation import QuadrantsInformation
-from pathlib import Path
-import numpy as np
-from vedo import Volume
-from scipy import ndimage
-
-
 from SegmentationManager import SegmentationManager
 
 

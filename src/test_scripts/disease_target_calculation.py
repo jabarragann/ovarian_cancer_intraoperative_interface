@@ -3,13 +3,13 @@ from typing import Any
 
 sys.path.append("./src")  # to import from parent dir
 
-from QuadrantInformation import QuadrantsInformation
 from pathlib import Path
+
 import numpy as np
-from vedo import Volume
 from scipy import ndimage
+from vedo import Volume
 
-
+from QuadrantInformation import QuadrantsInformation
 from SegmentationManager import SegmentationManager
 
 

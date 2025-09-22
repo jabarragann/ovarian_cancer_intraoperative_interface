@@ -1,8 +1,9 @@
 import re
+from pathlib import Path
+
 import nrrd
 import numpy as np
-from vedo import Volume, Mesh, colors
-from pathlib import Path
+from vedo import Mesh, Volume, colors
 
 
 class SegmentationNameNotFoundError(Exception):

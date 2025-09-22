@@ -1,7 +1,7 @@
+import pickle
 from enum import Enum
 from pathlib import Path
 
-import pickle
 import numpy as np
 import seaborn as sns
 
@@ -95,12 +95,14 @@ def load_centers(path: Path):
 
     return pickle.load(open(complete_path, "rb"))
 
+
 def save_centers(centers: dict[QuadrantsInformation, np.ndarray], runtime_path: Path):
     path = runtime_path / "regions_center.pkl"
     path.parent.mkdir(parents=True, exist_ok=True)
 
     with open(path, "wb") as f:
         pickle.dump(centers, f)
+
 
 def compute_center(volume):
     seg_np = volume.tonumpy()
@@ -122,6 +124,7 @@ def compute_center(volume):
     # volume.dataset.TransformContinuousIndexToPhysicalPoint(ijk, world_coords)
 
     # return np.array(world_coords)
+
 
 ## Unused
 

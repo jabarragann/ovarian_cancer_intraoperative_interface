@@ -3,7 +3,8 @@ import sys
 sys.path.append("./src")  # to import from parent dir
 
 from pathlib import Path
-from vedo import Volume, Plotter, Line, Mesh
+
+from vedo import Line, Mesh, Plotter, Volume
 
 from SegmentationManager import SegmentationManager
 

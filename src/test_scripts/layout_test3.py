@@ -1,4 +1,4 @@
-from vedo import Plotter, Sphere, Box
+from vedo import Box, Plotter, Sphere
 
 vp = Plotter(shape=(2, 3), sharecam=False, size=(1200, 800))
 
@@ -12,7 +12,7 @@ row_fracs = [r / sum(row_ratios) for r in row_ratios]
 # top row.
 top_border = 0.90
 big_canvas_height = 0.6
-vp.renderers[0].SetViewport([ 0.025 , top_border - 0.3, 0.175 , top_border  ])
+vp.renderers[0].SetViewport([0.025, top_border - 0.3, 0.175, top_border])
 vp.renderers[1].SetViewport([0.225, top_border - big_canvas_height, 0.575, top_border])
 vp.renderers[2].SetViewport([0.625, top_border - big_canvas_height, 0.975, top_border])
 # second row: single renderer spanning entire width

@@ -1,7 +1,8 @@
+from collections.abc import MutableSequence
 from pathlib import Path
+
 import numpy as np
 from vedo import Mesh, Volume
-from collections.abc import MutableSequence
 
 root_path = Path("/home/juan95/JuanData/OvarianCancerDataset/CT_scans")
 
@@ -18,7 +19,7 @@ center_idx = ((min_idx + max_idx) // 2).astype(int)
 print(f"Center idx {center_idx}")
 
 # seg is a vedo.Volume
-ijk = center_idx 
+ijk = center_idx
 
 # VTK has a method for this:
 world_coords: MutableSequence[float]

@@ -3,9 +3,10 @@ import sys
 sys.path.append("./src")  # to import from parent dir
 
 from pathlib import Path
-import numpy as np
-from vedo import Volume, colors, show, Plotter
+
 import nrrd
+import numpy as np
+from vedo import Plotter, Volume, colors, show
 
 from SegmentationManager import SegmentationManager
 
