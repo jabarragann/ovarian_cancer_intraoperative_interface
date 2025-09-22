@@ -1,4 +1,4 @@
-from vedo import Box, Plotter, Sphere
+from vedo import Box, Plotter
 
 vp = Plotter(shape=(2, 4), sharecam=False, size=(1200, 800))  # type: ignore
 

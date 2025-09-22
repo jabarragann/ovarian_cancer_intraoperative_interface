@@ -1,6 +1,4 @@
-import os
-
-import slicer
+import slicer  # type: ignore
 import vtk
 
 
