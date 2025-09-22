@@ -38,16 +38,16 @@ class VedoSegmentLoader:
 
         return spacing, origin
 
-    def get_volume_from_id(self, label_name: str) -> Volume:
+    def get_volume_from_segment_name(self, label_name: str) -> Volume:
         if label_name not in self.volume_dict:
-            raw_data = self.get_data_from_id(label_name)
+            raw_data = self.get_data_from_segment_name(label_name)
             self.volume_dict[label_name] = Volume(
                 raw_data, spacing=self.spacing, origin=self.origin
             )
 
         return self.volume_dict[label_name]
 
-    def get_data_from_id(self, label_name: str):
+    def get_data_from_segment_name(self, label_name: str):
         """
         In case of overlapping segments, data might be split in multiple volumes.
         You need to use header information to figure out the right data volume.
@@ -65,6 +65,10 @@ class VedoSegmentLoader:
         segment_id = self.find_segment_index(label_name)
         segment_layer = self.header[f"Segment{segment_id}_Layer"]
         return int(segment_layer)
+    
+    def get_segment_label_value_from_name(self, label_name: str) -> int:
+        segment_index = self.find_segment_index(label_name)
+        return self.get_segment_label_value(segment_index)
 
     def get_segment_label_value(self, segment_index: int) -> int:
         return int(self.header[f"Segment{segment_index}_LabelValue"])
@@ -94,12 +98,12 @@ class VedoSegmentLoader:
             f"Label '{label_name}' not found in {self.segmentation_path}"
         )
 
-    def get_slice(self, segment_name: str, index: int, plane:str, color:str) -> Mesh:
-        assert plane in ['x','y','z'], "Plane must be 'x', 'y' or 'z'"
+    def get_slice(self, segment_name: str, index: int, plane: str, color: str) -> Mesh:
+        assert plane in ["x", "y", "z"], "Plane must be 'x', 'y' or 'z'"
 
         segment_index = self.find_segment_index(segment_name)
         segment_label_value = self.get_segment_label_value(segment_index)
-        segment_volume = self.get_volume_from_id(segment_name)
+        segment_volume = self.get_volume_from_segment_name(segment_name)
 
         # print(f"segment name: {segment_name} segment index: {segment_index}")
         # print(f"Segment Label Value: {segment_label_value}")
@@ -117,7 +121,7 @@ class VedoSegmentLoader:
         lut = colors.build_lut(
             [
                 (0, (0, 0, 1), 0.0),  # everything else transparent
-                (segment_label_value, color),   
+                (segment_label_value, color),
             ],
             vmin=0,
             vmax=segment_label_value,

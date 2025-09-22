@@ -77,7 +77,9 @@ def slice_factory(ct, vedo_segment_loader):
 
 def create_cb(plotter, get_slice, create_crosshair, plane_to_name, ct):
     u_index = 0
-    target_in_voxel = [(283, 281, 175), (248, 268, 176), (277,242, 129)]
+    # target_in_voxel = [(283, 281, 175), (248, 268, 176), (277,242, 129)]
+    target_in_voxel = [(247 , 268, 172), (280, 282, 174), (194, 286,  96), (292, 274, 101)]
+    target_in_voxel.append((281, 288, 195)) #Left upper quadrant
     target_in_world = []
 
     for voxel in target_in_voxel:
@@ -99,7 +101,7 @@ def create_cb(plotter, get_slice, create_crosshair, plane_to_name, ct):
             print(f"actual camera pose - {plotter.at(2).camera.GetPosition()}")
 
         elif key == "u":
-            u_index = (u_index + 1) % 3
+            u_index = (u_index + 1) % len(target_in_voxel) 
             camera_params_slices = create_camera_params(target_in_world[u_index])
             update_plotters(
                 target_in_voxel[u_index], target_in_world[u_index], camera_params_slices
