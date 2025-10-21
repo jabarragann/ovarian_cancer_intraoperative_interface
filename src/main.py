@@ -67,6 +67,7 @@ class CT_Viewer(Plotter):
         self.set_layout()
 
         ## State variables
+        self.screenshot_count = 0
         self.target_voxel = [248, 268, 176]
         self.active_quadrant_id = 6
 
@@ -478,6 +479,11 @@ class CT_Viewer(Plotter):
             self.break_interaction()
         elif key.lower() == "t":
             print("Help key pressed")
+        elif key.lower() == "s":
+            self.screenshot(
+                f"./output/screenshot_ct_viewer_{self.screenshot_count}.png"
+            )
+            print("screenshot saved")
 
         elif key.lower() == "h":
             print("position", self.at(4).camera.GetPosition())  # type: ignore
